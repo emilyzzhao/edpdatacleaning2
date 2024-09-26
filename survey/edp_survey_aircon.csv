@@ -1,0 +1,275 @@
+edp_site_id,postcode,state,property_construction,property_construction_other,property_star_rating,num_bedrooms,num_occupants,aircon_type,aircon_type_simplified,num_rooms_aircon,num_rooms_heated,climate_zone
+S0024,4557,QLD,Brick veneer,Mix Brick Veneer and fibreboard on timber frame,0,4,4,Ducted,Ducted,7,7,2
+S0083,2257,NSW,Brick veneer,0,0,5 or more,5,Split System,Split System,1,0,5
+S0089,5352,SA,Brick veneer,0,0,4,2,Ducted,Ducted,8,3,6
+S0106,2515,NSW,Other (please specify),0,0,4,3,Split System,Split System,1,0,5
+S0107,3146,VIC,Lightweight,0,0,5 or more,4,Ducted,Ducted,7,7,6
+S0108,4133,QLD,Double brick,0,0,3,3,Split System,Split System,3,3,2
+S0110,2566,NSW,Brick veneer,0,0,4,6,Ducted,Ducted,7,7,6
+S0111,2085,NSW,Brick veneer,0,0,4,3,Split System,Split System,1,3,5
+W0086,2093,NSW,Double brick,0,0,3,5,Wall / window mounted aircon,Wall / window mounted aircon,1,1,5
+W0087,3858,VIC,Brick veneer,0,5,4,2,Split System,Split System,2,2,7
+S0159,5097,SA,Brick veneer,Brick veneer with solid brick for wet areas,0,3,2,Ducted evaporative cooler,Ducted,7,2,5
+S0173,3064,VIC,Double brick,0,5,4,4,Ducted evaporative cooler,Ducted,7,7,6
+S0177,2121,NSW,Lightweight,0,0,3,1,Wall / window mounted aircon,Wall / window mounted aircon,2,2,6
+S0179,2285,NSW,Lightweight,0,0,3,3,Split System,Split System,1,1,5
+S0188,6112,WA,Double brick,0,0,4,3,Ducted,Ducted,6,1,5
+S0195,2752,NSW,Lightweight,0,0,3,4,Split System,Split System,1,1,6
+S0198,4816,QLD,Double brick,Blockwork,0,5 or more,7 or more,Split System,Split System,10,0,3
+S0199,4105,QLD,Lightweight,0,0,3,2,Split System,Split System,3,0,2
+S0206,4814,QLD,Lightweight,0,0,2,2,Wall / window mounted aircon,Wall / window mounted aircon,2,0,1
+S0208,3032,VIC,Lightweight,Weatherboard,0,3,3,Split System,Split System,4,7,6
+S0209,2151,NSW,Brick veneer,0,0,3,2,Ducted,Ducted,7,7,6
+S0216,2289,NSW,Lightweight,0,0,5 or more,4,Ducted,Ducted,All,1,5
+S0223,2092,NSW,Double brick,0,0,4,3,Ducted,Ducted,3,7,5
+S0225,4814,QLD,Lightweight,0,0,2,2,Split System,Split System,2,0,1
+S0227,3429,VIC,Brick veneer,0,5,4,4,Ducted,Ducted,All,All,7
+S0229,4006,QLD,Lightweight,0,0,4,3,Ducted,Ducted,4,3,2
+S0230,7250,TAS,Double brick,0,0,3,4,Split System,Split System,2,2,7
+S0233,3631,VIC,Brick veneer,0,6.7,3,4,Ducted,Ducted,All,All,6
+S0238,2042,NSW,Double brick,0,0,3,3,Split System,Split System,All,All,5
+S0245,6112,WA,Double brick,0,0,3,2,Ducted,Ducted,5,5,5
+S0248,2536,NSW,Brick veneer,0,0,4,1,Split System,Split System,5,5,6
+S0249,2480,NSW,Brick veneer,0,0,3,1,Split System,Split System,4,4,2
+S0250,6230,WA,Double brick,0,0,4,2,Split System,Split System,1,0,5
+S0260,2153,NSW,Brick veneer,0,0,4,2,Split System,Split System,2,2,6
+S0261,4051,QLD,Concrete,0,0,5 or more,4,Ducted,Ducted,7,7,2
+S0268,5554,SA,Brick veneer,0,0,4,2,Ducted,Ducted,7,7,5
+S0284,2756,NSW,Brick veneer,0,0,4,4,Ducted,Ducted,6,6,6
+S0285,6053,WA,Double brick,0,0,3,3,Ducted,Ducted,All,All,5
+S0291,5271,SA,Brick veneer,0,0,5 or more,1,Split System,Split System,1,1,6
+S0299,2321,NSW,Double brick,Hebel,0,4,2,Ducted,Ducted,7,7,5
+S0301,4034,QLD,Lightweight,0,0,3,3,Split System,Split System,All,All,2
+S0309,5290,SA,Double brick,Stone ,0,5 or more,4,Split System,Split System,3,4,6
+S0314,4814,QLD,Brick veneer,0,0,4,4,Split System,Split System,6,0,1
+S0318,2191,NSW,Double brick,0,0,3,4,Wall / window mounted aircon,Wall / window mounted aircon,2,1,5
+S0324,5092,SA,Double brick,0,0,2,1,Ducted,Ducted,3,3,5
+S0337,2227,NSW,Brick veneer,0,0,4,4,Split System,Split System,1,1,5
+S0338,5095,SA,Brick veneer,0,0,2,2,Ducted,Ducted,4,4,5
+S0339,2478,NSW,Lightweight,0,0,3,2,Ducted,Ducted,3,4,2
+S0341,4105,QLD,Lightweight,0,0,4,2,Ducted,Ducted,6,0,2
+S0161,2800,NSW,Double brick,0,0,4,2,Ducted,Ducted,5,5,7
+S0162,2073,NSW,Other (please specify),,0,4,2,Ducted,Ducted,5,3,5
+S0349,2048,NSW,Other (please specify),,0,4,4,Split System,Split System,4,4,5
+S0351,5073,SA,Brick veneer,0,0,3,2,Ducted,Ducted,5,5,5
+S0353,3429,VIC,Brick veneer,0,4.5,4,4,Ducted evaporative cooler,Ducted,10,10,7
+S0360,5373,SA,Double brick,0,0,4,2,Ducted,Ducted,6,6,6
+S0372,5072,SA,Double brick,0,0,3,2,Split System,Split System,2,2,5
+S0376,2630,NSW,Brick veneer,0,0,4,4,Ducted,Ducted,All,All,7
+S0387,2044,NSW,Double brick,0,0,3,3,Split System,Split System,2,1,5
+S0392,5044,SA,Lightweight,0,5,3,2,Ducted,Ducted,5,5,5
+S0397,5073,SA,Brick veneer,0,6,4,4,Ducted,Ducted,4,4,5
+S0407,5038,SA,Lightweight,0,0,3,4,Split System,Split System,6,6,5
+S0410,2137,NSW,Double brick,0,0,3,4,Split System,Split System,1,2,5
+S0419,3189,VIC,Lightweight,0,0,3,2,Split System,Split System,1,8,6
+S0429,4352,QLD,Brick veneer,0,0,4,2,Split System,Split System,1,0,5
+S0430,2759,NSW,Brick veneer,0,0,3,4,Ducted,Ducted,6,0,6
+S0439,3996,VIC,Brick veneer,0,5,5 or more,4,Split System,Split System,1,8,6
+S0444,2295,NSW,Brick veneer,0,0,4,2,Ducted,Ducted,8,8,5
+S0451,5277,SA,Lightweight,Hardy plank,0,3,6,Split System,Split System,1,1,6
+S0456,5170,SA,Lightweight,0,0,5 or more,6,Ducted,Ducted,7,7,5
+S0462,5211,SA,Brick veneer,0,6,3,1,Ducted,Ducted,6,6,6
+S0463,5214,SA,Lightweight,0,0,4,2,Ducted,Ducted,6,2,6
+S0470,4567,QLD,Brick veneer,0,0,4,3,Ducted,Ducted,5,0,2
+S0482,2427,NSW,Lightweight,0,0,3,2,Ducted,Ducted,6,6,5
+S0483,2350,NSW,Brick veneer,0,0,4,2,Split System,Split System,2,1,7
+S0495,2251,NSW,Brick veneer,0,0,5 or more,3,Ducted,Ducted,0,0,5
+S0509,5012,SA,Brick veneer,0,0,3,4,Ducted,Ducted,4,4,5
+S0516,2263,NSW,Brick veneer,Brick lower walls and lightweight cladding above,0,3,2,Split System,Split System,2,2,5
+S0517,2150,NSW,Double brick,0,0,3,2,Split System,Split System,4,4,6
+S0520,2112,NSW,Brick veneer,0,0,5 or more,6,Ducted,Ducted,10,4,5
+S0545,5011,SA,Brick veneer,0,0,3,4,Ducted,Ducted,All,All,5
+S0548,2818,NSW,Lightweight,Steel frame and timber cladding,0,4,3,Split System,Split System,3,3,4
+S0562,2155,NSW,Brick veneer,0,0,4,4,Ducted,Ducted,6,6,6
+S0568,4812,QLD,Lightweight,0,0,4,1,Split System,Split System,4,0,1
+S0569,2110,NSW,Brick veneer,0,0,5 or more,4,Split System,Split System,1,2,5
+S0573,2756,NSW,Brick veneer,0,0,4,4,Ducted,Ducted,7,1,6
+S0576,5034,SA,Brick veneer,0,0,3,4,Ducted,Ducted,5,5,5
+S0579,2291,NSW,Concrete,0,0,4,4,Split System,Split System,3,5,5
+S0586,5095,SA,Brick veneer,0,0,4,4,Split System,Split System,All,All,5
+S0587,2619,NSW,Brick veneer,0,0,4,2,Split System,Split System,All,All,7
+S0598,2131,NSW,Double brick,0,0,4,4,Split System,Split System,1,1,5
+W0001,2233,NSW,Double brick,0,0,3,4,Split System,Split System,3,0,5
+W0002,5095,SA,Brick veneer,0,0,3,3,Ducted,Ducted,6,6,5
+W0003,4012,QLD,Lightweight,0,0,4,3,Ducted,Ducted,8,8,2
+W0004,5126,SA,Double brick,0,0,3,3,Ducted,Ducted,5,5,5
+W0005,2233,NSW,Lightweight,0,0,4,3,Split System,Split System,2,2,5
+W0006,5158,SA,Brick veneer,0,0,4,6,Ducted evaporative cooling,Ducted,6,1,5
+W0007,2082,NSW,Lightweight,0,0,3,2,Split System,Split System,5,5,5
+W0008,2287,NSW,Brick veneer,0,0,4,4,"Split System, Ducted",Combined,5,5,5
+W0009,3977,VIC,Brick veneer,0,6,4,3,Ducted,Ducted,7,7,6
+W0010,4035,QLD,Brick veneer,0,0,4,3,Ducted,Ducted,6,6,2
+W0011,2283,NSW,Brick veneer,0,0,4,5,Ducted,Ducted,9,9,5
+W0013,2226,NSW,Brick veneer,0,0,5 or more ,3,Split System,Split System,2,2,5
+W0014,3858,VIC,Brick veneer,0,0,3,2,Ducted,Ducted,6,1,7
+W0016,5087,SA,Brick veneer,0,0,3,3,Ducted,Ducted,4,4,5
+W0017,5000,SA,Double brick,0,0,5 or more ,5,Ducted,Ducted,All,All,5
+W0018,2750,NSW,Brick veneer,0,0,5 or more ,4,Ducted,Ducted,8,8,6
+W0019,2263,NSW,Lightweight,0,0,3,3,Split System,Split System,2,0,5
+W0023,3858,VIC,Brick veneer,0,5,3,2,Ducted,Ducted,5,5,7
+W0024,2137,NSW,Concrete,0,0,3,2,Ducted,Ducted,5,5,5
+W0025,2081,NSW,Lightweight,0,0,5 or more ,2,Split System,Split System,3,0,5
+W0026,3215,VIC,Double brick,0,0,5 or more ,6,Split System,Split System,1,9,6
+W0029,2074,NSW,Double brick,0,0,4,3,Ducted,Ducted,All,All,5
+W0031,2784,NSW,Brick veneer,0,0,4,2,Ducted,Ducted,7,7,6
+W0035,4012,QLD,Brick veneer,0,0,2,2,"Wall / window mounted aircon, Split System",Combined,2,0,2
+W0036,2047,NSW,Double brick,0,0,3,5,Ducted,Ducted,3,4,5
+W0037,2282,NSW,Brick veneer,0,0,5 or more ,5,Ducted,Ducted,4,4,5
+W0039,5013,SA,Double brick,0,0,3,4,Ducted evaporative cooling,Ducted,5,5,5
+W0040,5173,SA,Brick veneer,0,0,3,2,Ducted,Ducted,All,All,5
+W0041,3226,VIC,Lightweight,0,6.3,3,3,Split System,Split System,1,6,6
+W0043,2326,NSW,Lightweight,0,0,3,6,Ducted,Ducted,5,5,5
+W0044,3084,VIC,Lightweight,0,0,5 or more ,3,"Split System, Ducted",Combined,5,5,6
+W0046,5154,SA,Lightweight,0,0,5 or more ,4,Split System,Split System,6,6,6
+W0047,2765,NSW,Brick veneer,0,0,4,4,Ducted,Ducted,All,All,6
+W0048,3227,VIC,Lightweight,0,4,3,4,Split System,Split System,4,4,6
+W0049,2777,NSW,Brick veneer,0,0,3,2,Split System,Split System,2,1,6
+W0050,3227,VIC,Lightweight,0,0,4,2,Wall / window mounted aircon,Wall / window mounted aircon,2,0,6
+W0051,2324,NSW,Brick veneer,0,0,4,5,Split System,Split System,1,1,5
+W0052,5063,SA,Concrete,0,0,2,1,Ducted,Ducted,4,4,5
+W0056,2076,NSW,Lightweight,0,0,4,4,Ducted,Ducted,5,5,5
+W0057,3858,VIC,Double brick,0,0,3,2,Split System,Split System,2,1,7
+W0058,4061,QLD,Lightweight,0,0,3,4,Split System,Split System,1,0,2
+W0059,5052,SA,Double brick,0,0,4,4,"Stand-alone evaporative cooling, Split System",Combined,4,1,5
+W0060,4163,QLD,Brick veneer,0,0,3,3,Split System,Split System,2,3,2
+W0061,3858,VIC,Lightweight,0,0,3,4,Split System,Split System,1,1,7
+W0062,2305,NSW,Lightweight,0,0,3,2,Ducted,Ducted,3,5,5
+W0064,2075,NSW,Brick veneer,0,0,4,4,Ducted,Ducted,5,5,5
+W0068,3858,VIC,Brick veneer,0,0,4,5,Split System,Split System,1,1,7
+W0069,2016,NSW,Double brick,0,0,3,2,Split System,Split System,2,2,5
+W0070,2323,NSW,Brick veneer,0,0,3,2,Split System,Split System,4,1,5
+W0073,2420,NSW,Double brick,Hebel brick,0,3,2,Split System,Split System,2,1,5
+W0074,3858,VIC,Brick veneer,0,0,3,2,Split System,Split System,1,1,7
+W0075,2304,NSW,Brick veneer,0,0,3,3,Ducted,Ducted,7,7,5
+W0076,3858,VIC,Lightweight,0,0,3,4,Split System,Split System,1,1,7
+W0077,2148,NSW,Lightweight,0,0,5 or more ,5,"Ducted, Stand-alone evaporative cooling",Combined,5,5,6
+W0078,2289,NSW,Lightweight,0,0,4,2,Split System,Split System,3,1,5
+W0079,2285,NSW,Lightweight,0,0,4,5,Split System,Split System,2,2,5
+W0081,2101,NSW,Brick veneer,0,0,5 or more ,4,Ducted,Ducted,All,1,5
+W0082,2148,NSW,Brick veneer,0,6,4,2,Ducted,Ducted,4,4,6
+W0084,2300,NSW,Brick veneer,0,0,3,2,"Split System, Ducted",Combined,6,6,5
+W0088,3858,VIC,Lightweight,0,3,3,4,Split System,Split System,1,0,7
+W0089,3858,VIC,Brick veneer,0,0,4,6,Split System,Split System,1,1,7
+W0091,4060,QLD,Don't know,0,0,5 or more ,5,Split System,Split System,10,10,2
+W0092,2148,NSW,Brick veneer,0,6,4,4,Ducted,Ducted,6,6,6
+W0093,5121,SA,Brick veneer,0,0,4,3,Ducted,Ducted,8,0,5
+W0094,2113,NSW,Lightweight,0,0,4,4,"Split System, Ducted",Combined,4,3,5
+W0096,3429,VIC,Brick veneer,0,0,3,2,Split System,Split System,3,3,7
+W0100,2257,NSW,Brick veneer,0,0,4,4,Split System,Split System,2,0,5
+W0101,3804,VIC,Brick veneer,0,7,4,5,Ducted,Ducted,5,5,7
+W0104,2620,NSW,Brick veneer,0,0,4,3,Ducted,Ducted,All,0,7
+W0106,2611,ACT,Lightweight,0,2,5 or more ,4,Ducted evaporative cooling,Ducted,ALL,All,7
+W0107,3170,VIC,Brick veneer,0,0,4,4,Split System,Split System,5,0,6
+W0109,3071,VIC,Lightweight,0,0,3,4,Split System,Split System,5,5,6
+W0112,3805,VIC,Brick veneer,0,0,3,3,Split System,Split System,3,6,6
+W0114,2234,NSW,Brick veneer,0,0,5 or more ,5,Split System,Split System,1,1,5
+W0118,2072,NSW,Double brick,0,0,5 or more ,5,Split System,Split System,3,3,5
+W0119,2795,NSW,Brick veneer,0,0,3,6,Split System,Split System,3,0,7
+W0120,2088,NSW,Double brick,0,0,3,2,Split System,Split System,4,4,5
+W0121,3058,VIC,Double brick,0,0,4,2,"Split System, Ducted, Stand-alone evaporative cooling",Combined,6,6,6
+W0124,2147,NSW,Brick veneer,0,0,3,2,Ducted,Ducted,3,3,6
+W0130,2287,NSW,Brick veneer,0,0,5 or more ,4,"Split System, Ducted",Combined,7,7,5
+W0133,2800,NSW,Brick veneer,0,0,4,1,Split System,Split System,1,1,7
+W0137,2420,NSW,Lightweight,0,0,3,2,Wall / window mounted aircon,Wall / window mounted aircon,1,1,5
+W0138,2617,ACT,Brick veneer,0,1,3,4,Ducted,Ducted,6,6,7
+W0141,4075,QLD,Lightweight,0,0,5 or more ,5,"Ducted, Split System",Combined,6,6,2
+W0142,2519,NSW,Lightweight,0,0,4,4,Ducted,Ducted,5,5,5
+W0143,2152,NSW,Other (please specify),0,0,4,5,Ducted,Ducted,8,8,6
+W0144,5167,SA,Double brick,Hebel,0,4,4,Ducted,Ducted,6,6,5
+W0145,3038,VIC,Brick veneer,0,0,4,2,Ducted evaporative cooling,Ducted,0,4,6
+W0148,2250,NSW,Double brick,0,0,4,3,Ducted,Ducted,6,6,5
+W0155,2076,NSW,Brick veneer,0,0,5 or more ,2,Split System,Split System,2,2,5
+W0158,2790,NSW,Brick veneer,0,0,4,2,Split System,Split System,3,10,6
+W0159,2065,NSW,Concrete,0,0,3,3,Ducted,Ducted,All,All,5
+W0160,5107,SA,Brick veneer,0,0,3,2,Ducted,Ducted,4,4,5
+W0161,5067,SA,Brick veneer,0,0,3,2,Ducted,Ducted,6,0,5
+W0162,2571,NSW,Brick veneer,0,0,4,4,Ducted,Ducted,9,9,6
+W0165,3056,VIC,Concrete,0,0,3,1,Split System,Split System,1,1,6
+W0166,2602,ACT,Don't know,0,6,5 or more ,5,Split System,Split System,3,3,7
+W0262,3088,VIC,Brick veneer,0,0,4,2,Split System,Split System,1,1,6
+W0172,2611,ACT,Don't know,0,0,2,2,Ducted,Ducted,All,All,7
+W0175,2074,NSW,Brick veneer,0,0,4,5,"Split System, Ducted",Combined,All,All,5
+W0176,2090,NSW,Double brick,0,0,3,2,Ducted,Ducted,10,0,5
+W0178,3015,VIC,Brick veneer,0,7,5 or more ,4,Ducted,Ducted,All,6,6
+W0181,2216,NSW,Concrete,0,0,4,4,Ducted,Ducted,All,1,5
+W0182,2259,NSW,Brick veneer,0,0,4,3,Split System,Split System,1,0,5
+W0186,3978,VIC,Brick veneer,0,6,4,2,Split System,Split System,1,8,6
+W0188,5023,SA,Brick veneer,0,0,5 or more ,6,Ducted,Ducted,11,11,5
+W0190,6018,WA,Double brick,0,0,4,3,Ducted,Ducted,8,8,5
+W0192,2800,NSW,Brick veneer,0,0,4,5,Ducted,Ducted,6,6,7
+W0193,3149,VIC,Brick veneer,0,0,4,4,Ducted,Ducted,8,8,6
+W0194,3032,VIC,Lightweight,0,6,4,3,Ducted,Ducted,All,All,6
+W0195,2777,NSW,Lightweight,0,0,5 or more ,4,Ducted,Ducted,8,8,6
+W0197,5052,SA,Brick veneer,0,0,5 or more ,6,"Split System, Wall / window mounted aircon",Combined,5,2,5
+W0198,2232,NSW,Double brick,0,0,4,3,Split System,Split System,2,0,5
+W0199,2530,NSW,Lightweight,0,0,3,6,Split System,Split System,1,0,5
+W0200,2280,NSW,Lightweight,0,0,3,2,"Wall / window mounted aircon, Split System",Combined,5,3,5
+W0205,2015,NSW,Double brick,0,0,4,5,Split System,Split System,5,5,5
+W0207,2173,NSW,Brick veneer,0,0,5 or more ,6,"Ducted, Split System",Combined,9,9,6
+W0213,2560,NSW,Brick veneer,0,0,3,2,Ducted,Ducted,All,All,6
+W0216,2567,NSW,Brick veneer,0,0,4,2,Ducted,Ducted,All,All,6
+W0219,2220,NSW,Brick veneer,0,0,3,3,Ducted,Ducted,6,0,5
+W0220,2130,NSW,Double brick,0,0,4,4,,,0,0,5
+W0221,2113,NSW,Double brick,0,0,4,5,Split System,Split System,5,8,5
+W0224,5073,SA,Double brick,0,0,3,3,Ducted evaporative cooling,Ducted,5,5,5
+W0227,3018,VIC,Brick veneer,0,0,4,5,Ducted,Ducted,12,12,6
+W0228,3770,VIC,Lightweight,0,0,5 or more ,4,Split System,Split System,1,1,7
+W0229,3630,VIC,Double brick,0,0,3,3,"Split System, Ducted",Combined,6,6,4
+W0232,2166,NSW,Brick veneer,0,0,4,4,Ducted,Ducted,6,0,6
+W0233,2783,NSW,Brick veneer,0,0,3,3,Split System,Split System,1,1,6
+W0234,3978,VIC,Brick veneer,0,5,4,3,Ducted,Ducted,10,10,6
+W0236,2428,NSW,Brick veneer,0,0,4,2,Ducted,Ducted,6,6,5
+W0239,2093,NSW,Brick veneer,0,0,5 or more ,4,Split System,Split System,2,0,5
+W0240,2132,NSW,Brick veneer,0,0,4,5,Ducted,Ducted,9,9,5
+W0241,2900,ACT,Brick veneer,0,0,3,7 or more ,Ducted,Ducted,3,3,7
+W0243,2173,NSW,Brick veneer,0,0,4,4,Ducted,Ducted,8,8,6
+W0244,2125,NSW,Don't know,0,0,5 or more ,4,"Split System, Ducted",Combined,7,7,5
+W0251,3072,VIC,Lightweight,0,3,3,4,Ducted,Ducted,9,9,6
+W0253,2213,NSW,Brick veneer,0,0,4,4,Ducted,Ducted,6,1,6
+W0254,3107,VIC,Brick veneer,0,0,4,2,Split System,Split System,4,9,6
+W0256,2228,NSW,Brick veneer,0,0,5 or more ,6,Ducted,Ducted,10,10,5
+W0258,3338,VIC,Lightweight,0,0,4,2,Ducted,Ducted,8,8,6
+W0260,3192,VIC,Double brick,0,0,4,4,Ducted evaporative cooling,Ducted,4,4,6
+W0264,2041,NSW,Double brick,0,0,4,4,"Split System, Ducted",Combined,7,7,5
+W0266,2530,NSW,Brick veneer,0,0,4,2,"Wall / window mounted aircon, Ducted",Combined,5,6,5
+W0271,2280,NSW,Lightweight,0,0,3,2,Split System,Split System,2,0,5
+W0272,2126,NSW,Brick veneer,0,0,4,3,Split System,Split System,1,1,5
+W0273,5062,SA,Brick veneer,0,0,4,4,"Split System, Ducted",Combined,6,6,5
+W0275,2229,NSW,Lightweight,0,0,3,3,Split System,Split System,2,1,5
+W0276,2765,NSW,Lightweight,0,0,3,5,Ducted,Ducted,6,6,6
+W0278,2790,NSW,Double brick,Hebel Power Panels,5,3,2,Ducted,Ducted,5,2,6
+W0279,2323,NSW,Brick veneer,0,0,4,2,Split System,Split System,1,3,5
+W0283,2119,NSW,Double brick,0,0,4,4,"Split System, Ducted",Combined,10,10,6
+W0284,3108,VIC,Lightweight,0,0,4,2,Split System,Split System,6,6,6
+W0291,2207,NSW,Double brick,0,0,4,4,Ducted,Ducted,8,8,5
+W0293,2340,NSW,Lightweight,0,0,5 or more ,4,"Split System, Stand-alone evaporative cooling",Combined,11,3,4
+W0294,2112,NSW,Brick veneer,0,0,3,1,Split System,Split System,3,1,5
+W0297,3057,VIC,Lightweight,0,0,3,3,Split System,Split System,1,1,6
+W0298,3032,VIC,Brick veneer,0,0,4,3,Ducted,Ducted,7,7,6
+W0299,3116,VIC,Brick veneer,0,0,5 or more ,4,"Split System, Ducted",Combined,8,8,7
+W0302,2031,NSW,Double brick,0,0,4,4,Split System,Split System,4,0,5
+W0303,2041,NSW,Lightweight,0,0,5 or more ,5,Ducted,Ducted,10,10,5
+W0304,2430,NSW,Brick veneer,0,0,4,2,Split System,Split System,3,3,5
+W0310,3127,VIC,Lightweight,0,0,4,4,Ducted,Ducted,6,8,6
+W0314,5011,SA,Lightweight,0,7.3,3,4,Ducted,Ducted,All,All,5
+W0315,3806,VIC,Brick veneer,0,0,4,2,"Split System, Ducted evaporative cooling",Combined,8,8,6
+W0318,3116,VIC,Brick veneer,0,0,3,1,"Ducted, Split System",Combined,8,8,7
+W0319,2153,NSW,Brick veneer,0,0,4,2,"Split System, Ducted",Combined,6,6,6
+W0321,2444,NSW,Brick veneer,0,0,4,2,Ducted,Ducted,6,6,5
+W0322,2526,NSW,Brick veneer,0,0,3,3,"Wall / window mounted aircon, Split System",Combined,2,2,5
+W0324,2170,NSW,Brick veneer,0,0,5 or more ,5,Ducted,Ducted,10,10,6
+W0325,5120,SA,Brick veneer,0,6.5,4,4,Ducted,Ducted,All,All,5
+W0326,2155,NSW,Brick veneer,0,0,4,3,Ducted,Ducted,9,9,6
+W0328,3910,VIC,Brick veneer,0,0,3,4,Split System,Split System,3,4,6
+W0329,2132,NSW,Double brick,0,0,5 or more ,4,Ducted,Ducted,8,8,5
+W0330,3095,VIC,Brick veneer,0,0,4,3,"Split System, Ducted",Combined,12,12,6
+W0332,3015,VIC,Brick veneer,0,0,4,5,Ducted,Ducted,All,All,6
+W0334,2795,NSW,Brick veneer,0,0,5 or more ,6,Split System,Split System,1,0,7
+W0335,3030,VIC,Lightweight,0,0,4,3,Ducted,Ducted,4,4,6
+W0336,2065,NSW,Double brick,0,0,5 or more ,5,Wall / window mounted aircon,Wall / window mounted aircon,1,7,5
+W0341,2768,NSW,Brick veneer,0,0,4,3,Ducted,Ducted,7,0,6
+W0342,2429,NSW,Lightweight,0,0,3,4,Ducted,Ducted,5,5,5
+W0345,2287,NSW,Brick veneer,0,0,4,5,Ducted,Ducted,8,8,5
+W0346,3044,VIC,Lightweight,0,0,3,4,Split System,Split System,5,5,6
+W0348,3072,VIC,Brick veneer,0,6,3,3,Split System,Split System,4,4,6
+W0352,5097,SA,Brick veneer,0,0,3,2,Ducted,Ducted,6,6,5
