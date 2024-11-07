@@ -6,7 +6,6 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=UserWarning)
 
-
 import os
 import pandas as pd
 import plotly.graph_objects as go
@@ -32,11 +31,12 @@ from tslearn.preprocessing import TimeSeriesScalerMeanVariance, TimeSeriesScaler
 from tslearn.barycenters import softdtw_barycenter 
 import matplotlib.patches as mpatches
 from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score, pairwise_distances, pairwise_distances_argmin_min
-from sklearn_extra.cluster import KMedoids 
+import sklearn_extra.cluster as sk
 from fastdtw import fastdtw
 from scipy.spatial.distance import euclidean
 from scipy.cluster.hierarchy import dendrogram, linkage,  single, complete, average, ward, fcluster
 from tslearn.metrics import dtw, cdist_dtw
+from k_means_constrained import KMeansConstrained
 
 #Average Squared-Loss Mutual Information Error (SMI),
 #Violation rate of Root Squared Error (VRSE)
@@ -120,6 +120,56 @@ def evaluate_clustering_kmeans(rlp_dict, num_clusters):
 
     # Ensure we're only fitting columns with valid data (i.e., drop columns with missing values if necessary)
     kmeans = TimeSeriesKMeans(n_clusters=num_clusters, random_state= 36)
+    X = df[non_c0_columns].T
+
+    # Transpose the data (sites as columns and half-hour periods as rows)
+    kmeans.fit(X)
+    cluster_labels = kmeans.labels_
+    
+    # Calculate metrics
+    silhouette = silhouette_score(X, cluster_labels)
+    dbi = davies_bouldin_score(X, cluster_labels)
+    mia = mean_index_adequacy(X, cluster_labels)
+    
+    # Calculate combined index
+    combined_index = (dbi * mia) / silhouette
+    
+    # Create Profile Classes DataFrame
+    Profile_Classes = pd.DataFrame(index=rlp_aggregated.columns)
+    Profile_Classes.loc[non_c0_columns, 'Profile_Class'] = cluster_labels + 1
+    Profile_Classes.loc[c0_columns, 'Profile_Class'] = 0
+    
+    return {
+        'silhouette_score': silhouette,
+        'davies_bouldin_index': dbi,
+        'mean_index_adequacy': mia,
+        'combined_index': combined_index,
+        'profile_classes': Profile_Classes
+    }
+
+
+def evaluate_clustering_kmeans_constrained(rlp_dict, num_clusters, size_max):
+    """
+    Perform time series clustering and calculate evaluation metrics
+    
+    Parameters:
+    rlp_dict (pd.DataFrame): DataFrame with RLP data
+    num_clusters (int): Number of clusters to create
+    
+    Returns:
+    dict: Dictionary containing clustering metrics and labels
+    """
+    # visualize profile classes (mean RLP)
+    
+    rlp_aggregated = aggregate_rlps(rlp_dict)
+    df = rlp_aggregated
+
+    # Exclude columns that end with "C0"
+    non_c0_columns = [col for col in df.columns if not col.endswith("C0")]
+    c0_columns = [col for col in df.columns if col.endswith("C0")]
+
+    # Ensure we're only fitting columns with valid data (i.e., drop columns with missing values if necessary)
+    kmeans = KMeansConstrained(n_clusters=num_clusters, random_state= 36, size_max = size_max)
     X = df[non_c0_columns].T
 
     # Transpose the data (sites as columns and half-hour periods as rows)
@@ -296,7 +346,7 @@ def visualize_profile_classes(rlp_aggregated, profile_classes, num_clusters):
     return fig, ax
 
 
-def compare_cluster_sizes(rlp_dict, cluster_type, min_clusters=4, max_clusters=15, save_plots=False, plot_dir=None):
+def compare_cluster_sizes(rlp_dict, cluster_type, min_clusters=4, max_clusters=15, save_plots=False, plot_dir=None, size_max=None):
     """
     Compare different numbers of clusters and their evaluation metrics.
     
@@ -326,6 +376,8 @@ def compare_cluster_sizes(rlp_dict, cluster_type, min_clusters=4, max_clusters=1
                 results = evaluate_clustering_kmeans(rlp_dict, n_clusters)
             elif cluster_type== "dtw":
                 results = evaluate_clustering_dtw(rlp_dict, n_clusters)
+            elif cluster_type == "kmeans_constrained":
+                results = evaluate_clustering_kmeans_constrained(rlp_dict, n_clusters, size_max)
             elif cluster_type == "kmedoids":
                 results = evaluate_clustering_kmedoids(rlp_dict, n_clusters)
             
@@ -337,17 +389,6 @@ def compare_cluster_sizes(rlp_dict, cluster_type, min_clusters=4, max_clusters=1
             }
             
             profile_classes_dict[n_clusters] = results['profile_classes']
-
-            # Optionally save plots
-            if save_plots:
-                if plot_dir is None:
-                    plot_dir = '.'
-                    
-                fig, ax = visualize_profile_classes(rlp_aggregated, 
-                                                  results['profile_classes'], 
-                                                  n_clusters)
-                plt.savefig(f'{plot_dir}/cluster_viz_{n_clusters}.png')
-                plt.close()
                 
         except Exception as e:
             print(f"Error evaluating {n_clusters} clusters: {str(e)}")

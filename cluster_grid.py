@@ -80,7 +80,6 @@ def mean_index_adequacy(X, labels):
     
     return mia
 
-
 def create_cluster_grid_rep_LP_constrained(df, start_date, end_date, num_clusters, low_consumption_sites_dict, min_cluster_size, max_cluster_size):
     dates = pd.date_range(start=pd.to_datetime(start_date).date(), end=pd.to_datetime(end_date).date())
     
@@ -556,8 +555,6 @@ def create_cluster_grid_rep_LP_DTW(df, start_date, end_date, num_clusters, low_c
 
     return rlp_dict, cluster_sites_df, metrics_df
 
-
-
 def create_cluster_grid_average_LP(df, start_date, end_date, num_clusters, low_consumption_sites_dict): 
     dates = pd.date_range(start=pd.to_datetime(start_date).date(), end=pd.to_datetime(end_date).date()) 
     #fig, axes = plt.subplots(num_clusters, len(dates), figsize=(20, 20)) 
@@ -629,13 +626,10 @@ def create_cluster_grid_average_LP(df, start_date, end_date, num_clusters, low_c
     
     return rlp_dict, cluster_sites_df
 
-# visualize profile classes (closest profile to centroid)
-
 def aggregate_rlps(rlp_dict):
     rlp_df = pd.DataFrame(rlp_dict)
     rlp_df.index = pd.date_range(start='00:00', end='23:30', freq='30T').strftime('%H:%M')
     return rlp_df
-
 
 def visualize_cluster_grid(rlp_dict, cluster_sites_df, df, num_clusters, selected_dates):
     """
@@ -740,3 +734,251 @@ def visualize_cluster_grid(rlp_dict, cluster_sites_df, df, num_clusters, selecte
     # Adjust layout
     plt.tight_layout(rect=[0, 0.02, 1, 0.96])
     return fig, axes
+
+def create_profile_classes_mean(rlp_aggregated, num_prof_classes):
+    df = rlp_aggregated
+    data = rlp_aggregated.T
+
+    # Exclude columns that end with "C0"
+    non_c0_columns = [col for col in df.columns if not col.endswith("C0")]
+    c0_columns = [col for col in df.columns if col.endswith("C0")]
+    num_clusters = num_prof_classes
+    kmeans = TimeSeriesKMeans(n_clusters=num_clusters)
+
+    # Ensure we're only fitting columns with valid data (i.e., drop columns with missing values if necessary)
+    X = df[non_c0_columns]
+
+    # Transpose the data (sites as columns and half-hour periods as rows)
+    kmeans.fit(X.T)
+
+    # Get the cluster labels and check their length matches the columns
+    cluster_labels = kmeans.labels_
+
+    # Make sure the number of labels matches the columns in X
+    if len(cluster_labels) != X.shape[1]:
+        raise ValueError("The number of cluster labels doesn't match the number of columns after clustering.")
+
+    # Apply KMeans to the non-C0 column
+
+    # Get the cluster labels assigned to each column (now row in the transposed data)
+    cluster_labels = kmeans.labels_
+    # Create a DataFrame to store Profile Classes
+    Profile_Classes = pd.DataFrame(index=df.columns)
+    # Assign the cluster labels to the non-C0 columns
+    Profile_Classes.loc[non_c0_columns, 'Profile_Class'] = cluster_labels + 1  # Cluster labels start from 1
+
+    # Handle the C0 columns: assign them to cluster 0 and compute the average RLP for them
+    Profile_Classes.loc[c0_columns, 'Profile_Class'] = 0
+
+    # Plotting the data
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.set_xlabel('Time of the Day', fontsize=12)
+    ax.set_ylabel('Load', fontsize=12)
+
+    # Create x-axis values (0 to 47 for 48 half-hour periods)
+    x_values = np.arange(48)
+
+    colors = plt.cm.viridis(np.linspace(0, 1, num_clusters+1))
+
+    legend_handles = []
+
+    # Plot non-C0 clusters
+    for i in range(0, num_clusters+1):
+        cluster_columns = Profile_Classes[Profile_Classes.Profile_Class == i].index
+        cluster_data = df[cluster_columns]
+
+        # Plot individual observations with low alpha
+        for col in cluster_data.columns:
+            ax.plot(x_values, cluster_data[col], color=colors[i], alpha=0.00)
+
+        # Plot the mean of the cluster
+        cluster_mean = cluster_data.mean(axis=1)
+        ax.plot(x_values, cluster_mean, color=colors[i], linewidth=2, label=f'Profile Class {i}')
+
+        # Create legend handles
+        legend_handles.append(mpatches.Patch(color=colors[i], label=f'Profile Class {i}'))
+
+
+    # Set x-axis ticks and labels
+    ax.set_xticks(range(0, 48, 2))
+    ax.set_xticklabels([f"{i // 2:02d}:00" for i in range(0, 48, 2)])
+    ax.tick_params(axis='x', labelrotation=45)
+
+    ax.legend(handles=legend_handles, loc='upper right', fontsize=10)
+    ax.grid(True, which='both', linestyle=':', alpha=0.1)
+    plt.tight_layout()
+    plt.show()
+
+    return Profile_Classes
+
+def create_profile_classes_rep(rlp_aggregated, num_prof_classes):
+
+    df = rlp_aggregated
+    data = rlp_aggregated.T
+
+    # Exclude columns that end with "C0"
+    non_c0_columns = [col for col in df.columns if not col.endswith("C0")]
+    c0_columns = [col for col in df.columns if col.endswith("C0")]
+    num_clusters = num_prof_classes
+    kmeans = TimeSeriesKMeans(n_clusters=num_clusters)
+
+    # Ensure we're only fitting columns with valid data
+    X = df[non_c0_columns]
+
+    # Transpose the data (sites as columns and half-hour periods as rows)
+    kmeans.fit(X.T)
+
+    # Get the cluster labels and check their length
+    cluster_labels = kmeans.labels_
+
+    # Make sure the number of labels matches the columns in X
+    if len(cluster_labels) != X.shape[1]:
+        raise ValueError("The number of cluster labels doesn't match the number of columns after clustering.")
+
+    # Create a DataFrame to store Profile Classes and Representative Profiles
+    Profile_Classes = pd.DataFrame(index=df.columns, columns=['Profile_Class', 'Representative_Profile'])
+
+    # Assign the cluster labels to the non-C0 columns
+    Profile_Classes.loc[non_c0_columns, 'Profile_Class'] = cluster_labels + 1
+
+    # Handle the C0 columns: assign them to cluster 0
+    Profile_Classes.loc[c0_columns, 'Profile_Class'] = 0
+
+    # Find and store representative profiles for each cluster including C0
+    unique_clusters = Profile_Classes['Profile_Class'].unique()
+    for i in unique_clusters:  # This ensures we process cluster 0 (C0) as well
+        cluster_columns = Profile_Classes[Profile_Classes.Profile_Class == i].index
+        cluster_data = df[cluster_columns]
+        
+        if not cluster_data.empty:
+            # Calculate mean profile for the cluster
+            mean_profile = cluster_data.mean(axis=1).values.reshape(1, -1)
+            
+            # Calculate distances from each profile to the mean
+            distances = pairwise_distances(cluster_data.T, mean_profile)
+            
+            # Get the name of the closest profile
+            representative_profile = cluster_data.columns[np.argmin(distances)]
+            
+            # Store the representative profile name for all profiles in this cluster
+            Profile_Classes.loc[cluster_columns, 'Representative_Profile'] = representative_profile
+
+    # Plotting the data
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.set_xlabel('Time of the Day', fontsize=12)
+    ax.set_ylabel('Load', fontsize=12)
+
+    # Create x-axis values (0 to 47 for 48 half-hour periods)
+    x_values = np.arange(48)
+
+    # Generate colors for all clusters including C0
+    all_clusters = len(unique_clusters)
+    colors = plt.cm.viridis(np.linspace(0, 1, all_clusters))
+
+    legend_handles = []
+
+    # Plot all clusters including C0
+    for i, cluster_num in enumerate(sorted(unique_clusters)):  # Sort to ensure C0 is first
+        cluster_columns = Profile_Classes[Profile_Classes.Profile_Class == cluster_num].index
+        cluster_data = df[cluster_columns]
+
+        # Plot individual observations with low alpha
+        for col in cluster_data.columns:
+            ax.plot(x_values, cluster_data[col], color=colors[i], alpha=0.005)
+
+        # Plot the representative profile
+        if not cluster_data.empty:
+            representative_profile = Profile_Classes.loc[cluster_columns, 'Representative_Profile'].iloc[0]
+            ax.plot(x_values, df[representative_profile], 
+                    color=colors[i], linewidth=2, 
+                    label=f'Profile Class {cluster_num}')
+
+        # Create legend handles
+        legend_handles.append(mpatches.Patch(color=colors[i], label=f'Profile Class {cluster_num}'))
+
+    # Set x-axis ticks and labels
+    ax.set_xticks(range(0, 48, 2))
+    ax.set_xticklabels([f"{i // 2:02d}:00" for i in range(0, 48, 2)])
+    ax.tick_params(axis='x', labelrotation=45)
+
+    ax.legend(handles=legend_handles, loc='upper right', fontsize=10)
+    ax.grid(True, which='both', linestyle=':', alpha=0.1)
+    plt.tight_layout()
+    plt.show()
+
+
+def create_profile_classes_mean_KMeansConstrained(rlp_aggregated, num_prof_classes, size_max):
+    df = rlp_aggregated
+    data = rlp_aggregated.T
+
+    # Exclude columns that end with "C0"
+    non_c0_columns = [col for col in df.columns if not col.endswith("C0")]
+    c0_columns = [col for col in df.columns if col.endswith("C0")]
+    num_clusters = num_prof_classes
+    kmeans = KMeansConstrained(n_clusters=num_clusters, size_max=size_max)
+
+    # Ensure we're only fitting columns with valid data (i.e., drop columns with missing values if necessary)
+    X = df[non_c0_columns]
+
+    # Transpose the data (sites as columns and half-hour periods as rows)
+    kmeans.fit(X.T)
+
+    # Get the cluster labels and check their length matches the columns
+    cluster_labels = kmeans.labels_
+
+    # Make sure the number of labels matches the columns in X
+    if len(cluster_labels) != X.shape[1]:
+        raise ValueError("The number of cluster labels doesn't match the number of columns after clustering.")
+
+    # Apply KMeans to the non-C0 column
+
+    # Get the cluster labels assigned to each column (now row in the transposed data)
+    cluster_labels = kmeans.labels_
+    # Create a DataFrame to store Profile Classes
+    Profile_Classes = pd.DataFrame(index=df.columns)
+    # Assign the cluster labels to the non-C0 columns
+    Profile_Classes.loc[non_c0_columns, 'Profile_Class'] = cluster_labels + 1  # Cluster labels start from 1
+
+    # Handle the C0 columns: assign them to cluster 0 and compute the average RLP for them
+    Profile_Classes.loc[c0_columns, 'Profile_Class'] = 0
+
+    # Plotting the data
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.set_xlabel('Time of the Day', fontsize=12)
+    ax.set_ylabel('Load', fontsize=12)
+
+    # Create x-axis values (0 to 47 for 48 half-hour periods)
+    x_values = np.arange(48)
+
+    colors = plt.cm.viridis(np.linspace(0, 1, num_clusters+1))
+
+    legend_handles = []
+
+    # Plot non-C0 clusters
+    for i in range(0, num_clusters+1):
+        cluster_columns = Profile_Classes[Profile_Classes.Profile_Class == i].index
+        cluster_data = df[cluster_columns]
+
+        # Plot individual observations with low alpha
+        for col in cluster_data.columns:
+            ax.plot(x_values, cluster_data[col], color=colors[i], alpha=0.00)
+
+        # Plot the mean of the cluster
+        cluster_mean = cluster_data.mean(axis=1)
+        ax.plot(x_values, cluster_mean, color=colors[i], linewidth=2, label=f'Profile Class {i}')
+
+        # Create legend handles
+        legend_handles.append(mpatches.Patch(color=colors[i], label=f'Profile Class {i}'))
+
+
+    # Set x-axis ticks and labels
+    ax.set_xticks(range(0, 48, 2))
+    ax.set_xticklabels([f"{i // 2:02d}:00" for i in range(0, 48, 2)])
+    ax.tick_params(axis='x', labelrotation=45)
+
+    ax.legend(handles=legend_handles, loc='upper right', fontsize=10)
+    ax.grid(True, which='both', linestyle=':', alpha=0.1)
+    plt.tight_layout()
+    plt.show()
+
+    return Profile_Classes
