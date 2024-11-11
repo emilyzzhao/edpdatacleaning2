@@ -2,7 +2,7 @@
 import patsy
 import statsmodels.api as sm
 from statsmodels.tools.sm_exceptions import PerfectSeparationError
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, RobustScaler
 import pandas as pd
 import numpy as np
 
@@ -50,21 +50,6 @@ def get_categorical_stats(df, variables):
     
     return pd.DataFrame(stats_list).round(2)
 
-def preprocess_numeric_features(df, numeric_columns):
-    """
-    Preprocess numeric features by scaling them to prevent overflow.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    numeric_columns (list): List of numeric column names
-    
-    Returns:
-    pd.DataFrame: DataFrame with scaled numeric features
-    """
-    scaler = StandardScaler()
-    df_scaled = df.copy()
-    df_scaled[numeric_columns] = scaler.fit_transform(df[numeric_columns])
-    return df_scaled, scaler
 
 def analyze_multinomial_regression(df, formula, numeric_columns, categorical_columns):
     """
@@ -104,85 +89,14 @@ def analyze_multinomial_regression(df, formula, numeric_columns, categorical_col
             print(f"Warning: High correlation detected between: {high_correlation}")
     
     # Fit the model
-    result, design_info, error_message = fit_multinomial_regression(
+    result, error_message = fit_multinomial_regression(
         df, 
         formula,
         numeric_columns=numeric_columns,
         categorical_columns=categorical_columns
     )
     
-    return result, design_info, error_message
-
-def fit_multinomial_regression(df, formula, numeric_columns, categorical_columns):
-    """
-    Fit a multinomial regression model with improved convergence handling.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    formula (str): Model formula
-    numeric_columns (list): List of numeric column names
-    categorical_columns (list): List of categorical column names
-    
-    Returns:
-    tuple: (fitted_model, design_info, error_message)
-    """
-    try:
-        # Create a copy of the dataframe to avoid modifying the original
-        df_processed = df.copy()
-
-        # Scale numeric variables
-        scaler = StandardScaler()
-        if numeric_columns:
-            df_processed[numeric_columns] = scaler.fit_transform(df[numeric_columns])
-        
-        # Ensure categorical columns are properly encoded
-        for cat_col in categorical_columns:
-            df_processed[cat_col] = df_processed[cat_col].astype('category')
-        
-        df_processed['profile_class'] = df_processed['profile_class'].astype('category') # Ensure profile_class is categorical
-        
-        # Get design matrix using patsy
-        y, X = patsy.dmatrices(formula, data=df_processed, return_type='dataframe')
-        
-        # Try different optimization methods if the first one fails
-        optimization_methods = ['bfgs', 'newton', 'nm']
-        result = None
-        best_llf = float('-inf')
-        
-        for method in optimization_methods:
-            try:
-                model = sm.MNLogit(y, X)
-                temp_result = model.fit(
-                    method=method,
-                    maxiter=7000,
-                    gtol=1e-6,
-                    disp=0
-                )
-                
-                # Keep the result with the best log-likelihood
-                if temp_result.llf > best_llf:
-                    result = temp_result
-                    best_llf = temp_result.llf
-                    
-            except Exception as e:
-                print(f"Method {method} failed: {str(e)}")
-                continue
-        
-        if result is None:
-            return None, None, "All optimization methods failed to converge"
-        
-        # Get design info for later prediction
-        design_info = X.design_info
-        
-        # Check if model converged properly
-        if not result.mle_retvals['converged']:
-            print("Warning: Model may not have fully converged")
-        
-        return result, design_info, None
-        
-    except Exception as e:
-        error_message = f"Error fitting model: {str(e)}"
-        return None, None, error_message
+    return result, error_message
 
     
 
@@ -197,98 +111,87 @@ def fit_multinomial_regression(df, formula, numeric_columns, categorical_columns
     categorical_columns (list): List of categorical column names
     
     Returns:
-    tuple: (fitted_model, design_info, error_message)
+    tuple: (fitted_model, error_message)
     """
     try:
         # Create a copy of the dataframe to avoid modifying the original
         df_processed = df.copy()
         
-        # Check for infinite or very large values
-        numeric_data = df_processed[numeric_columns] if numeric_columns else pd.DataFrame()
-        if not numeric_data.empty:
-            # Replace infinite values with NaN
-            numeric_data = numeric_data.replace([np.inf, -np.inf], np.nan)
-            
-            # Cap extreme values at 99.9th and 0.1th percentiles
-            for col in numeric_data.columns:
-                lower_bound = numeric_data[col].quantile(0.001)
-                upper_bound = numeric_data[col].quantile(0.999)
-                numeric_data[col] = numeric_data[col].clip(lower_bound, upper_bound)
-            
-            # Handle missing values
-            numeric_data = numeric_data.fillna(numeric_data.mean())
-            
-            # Scale numeric variables with robust scaling
-            scaler = StandardScaler()  # More robust to outliers than StandardScaler
-            df_processed[numeric_columns] = scaler.fit_transform(numeric_data)
+        # Filter extreme temperatures if needed
+        df_processed = df_processed[df_processed['min_air_temperature'] >= -10.8]
         
-        # Ensure categorical columns are properly encoded
-        for cat_col in categorical_columns:
-            # Remove rare categories (less than 1% of data)
-            value_counts = df_processed[cat_col].value_counts(normalize=True)
-            rare_categories = value_counts[value_counts < 0.01].index
-            df_processed[cat_col] = df_processed[cat_col].replace(rare_categories, 'Other')
-            df_processed[cat_col] = df_processed[cat_col].astype('category')
         
-        df_processed['profile_class'] = df_processed['profile_class'].astype('category')
+        # Center and scale numeric variables
+        for col in numeric_columns:
+            if col in df_processed.columns:
+                df_processed[col] = (df_processed[col] - df_processed[col].mean()) / df_processed[col].std()
+
+        # Recategorize climate zones with meaningful labels
+        climate_zone_mapping = {
+            1: 'Humid Summer',    # Combining 1 with 2
+            2: 'Humid Summer',
+            3: 'Hot Dry Summer',  # Combining 3 with 4
+            4: 'Hot Dry Summer',
+            5: 'Warm Summer',
+            6: 'Mild Temperate',
+            7: 'Cool Temperate'
+        }
         
-        # Get design matrix using patsy
-        y, X = patsy.dmatrices(formula, data=df_processed, return_type='dataframe')
+        # Apply the mapping
+        df_processed['climate_zone'] = df_processed['climate_zone'].map(climate_zone_mapping)
+        
+        # Convert to category type and set category order
+        df_processed['climate_zone'] = pd.Categorical(
+            df_processed['climate_zone'],
+            categories=['Humid Summer', 'Hot Dry Summer', 'Warm Summer', 
+                       'Mild Temperate', 'Cool Temperate'],
+            ordered=True
+        )
+
+
+        # Handle profile class separately
+        df_processed['profile_class'] = pd.Categorical(
+            df_processed['profile_class'],
+            categories=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            ordered=True
+        )
+
+        # Get design matrix using patsy with explicit categorization
+        y, X = patsy.dmatrices(
+            formula,
+            data=df_processed,
+            return_type='dataframe'
+        )
         
         # Check for perfect separation
         X_array = X.values
         if np.any(np.abs(X_array) > 1e10):
             print("Warning: Possible perfect separation detected")
-            
-        # Add small constant to avoid perfect separation
-        X = X + 1e-8
         
-        # Try different optimization methods with various parameters
-        optimization_configs = [
-            {'method': 'bfgs', 'maxiter': 5000, 'gtol': 1e-4},
-            {'method': 'newton', 'maxiter': 5000, 'gtol': 1e-4},
-            {'method': 'bfgs', 'maxiter': 5000, 'gtol': 1e-6},
-            {'method': 'nm', 'maxiter': 5000, 'gtol': 1e-6}
-        ]
+        # Fit model with robust optimization settings
+        model = sm.MNLogit(y, X)
+        result = model.fit(
+            method='bfgs',
+            maxiter=10000,  # Increased max iterations
+            gtol=1e-6,      # Adjusted convergence criterion
+            cov_type='HC0', # Use robust covariance estimation
+            disp=True,
+            full_output=True
+        )
         
-        result = None
-        best_llf = float('-inf')
-        
-        for config in optimization_configs:
-            try:
-                model = sm.MNLogit(y, X)
-                temp_result = model.fit(
-                    method=config['method'],
-                    maxiter=config['maxiter'],
-                    gtol=config['gtol'],
-                    disp=0, 
-                )
-                
-                # Keep the result with the best log-likelihood
-                if temp_result.llf > best_llf and not np.isnan(temp_result.llf):
-                    result = temp_result
-                    best_llf = temp_result.llf
-                    
-            except Exception as e:
-                print(f"Method {config['method']} failed: {str(e)}")
-                continue
-        
-        if result is None:
-            return None, None, "All optimization methods failed to converge"
-        
-        # Get design info for later prediction
-        design_info = X.design_info
-        
-        # Check convergence and model quality
+        # Verify the result
         if not result.mle_retvals['converged']:
             print("Warning: Model may not have fully converged")
             
-        # Check for numerical instability in coefficients
         if np.any(np.abs(result.params) > 1e5):
             print("Warning: Very large coefficients detected, model may be unstable")
-        
-        return result, design_info, None
-        
+            
+        # Explicitly compute covariance if not present
+        if result.cov_params() is None:
+            print("Warning: Covariance matrix could not be computed. Standard errors and p-values may not be available.")
+            
+        return result, None
+    
     except Exception as e:
         error_message = f"Error fitting model: {str(e)}"
-        return None, None, error_message
+        return None, error_message

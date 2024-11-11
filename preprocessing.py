@@ -4,6 +4,63 @@ from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
 import numpy as np
 
+
+def create_combined_df_UNNORMALIZED(data_dir, date_range):
+        
+    # Initialize an empty list to store household DataFrames
+    household_dfs = []
+
+    # Iterate through each CSV file in the directory
+    for filename in os.listdir(data_dir):
+        if filename.endswith("_profile.csv"):
+            file_path = os.path.join(data_dir, filename)
+            
+            # Load the household CSV file
+            df = pd.read_csv(file_path)
+            
+            # Convert the 'TS' column to datetime
+            df['TS'] = pd.to_datetime(df['TS'])
+            
+            # Set 'TS' as the index and extract 'Air_Conditioner_Load'
+            df = df.set_index('TS')['Air_Conditioner_Load']
+            
+            # Extract site ID from the filename (assuming the filename format is 'siteid_profile.csv')
+            site_id = filename.split('_')[0]
+            
+            # Rename the column with the site ID for clarity
+            df = df.rename(site_id)
+            
+            # Reindex the household data to match the complete date range
+            df = df.reindex(date_range)
+            
+
+            # Append the scaled household data to the list
+            household_dfs.append(df)
+
+    # Concatenate all household DataFrames along the columns (axis=1)
+    combined_df = pd.concat(household_dfs, axis=1)
+
+    # De-fragment the DataFrame by creating a copy
+    combined_df = combined_df.copy()
+
+    # Reset the index and rename the 'index' column to 'Timestamp'
+    combined_df = combined_df.reset_index()
+    combined_df = combined_df.rename(columns={'index': 'Timestamp'})
+
+    # List of IDs to remove
+    ids_to_remove = [
+        #'S0024', 'S0159', 'S0318', 'S0444', 'S0470',
+        'W0082', 'W0120', 'W0162', 'W0175', 'W0224',
+        'W0241', 'W0243', 'W0315', 'W0324', 'W0330', 'W0310', 'W0335', "W0336",
+        "W0213", "S0261", 'S0233', 'W0192', 'S0229', 'W0227', 'W0024', 'S0341', 'S0338', 'W0060', 'W0026'#, 'W0314'
+    ]
+
+    # Drop columns based on the list of IDs to remove
+    combined_df = combined_df.drop(columns=ids_to_remove, errors='ignore')
+    combined_df = combined_df.drop(columns=['Month', 'Season'], errors='ignore')
+
+    return combined_df
+
 def create_combined_df(data_dir, date_range):
         
     # Initialize an empty list to store household DataFrames
@@ -51,7 +108,7 @@ def create_combined_df(data_dir, date_range):
 
     # List of IDs to remove
     ids_to_remove = [
-        'S0024', 'S0159', 'S0318', 'S0444', 'S0470',
+        #'S0024', 'S0159', 'S0318', 'S0444', 'S0470',
         'W0082', 'W0120', 'W0162', 'W0175', 'W0224',
         'W0241', 'W0243', 'W0315', 'W0324', 'W0330', 'W0310', 'W0335', "W0336",
         "W0213", "S0261", 'S0233', 'W0192', 'S0229', 'W0227', 'W0024', 'S0341', 'S0338', 'W0060', 'W0026'#, 'W0314'
@@ -135,4 +192,61 @@ def create_low_consumption_dict(combined_df, min_cons):
         for day in low_consumption_days:
             low_consumption_dict[day.date()].append(site_id)
 
+    return low_consumption_dict
+
+
+
+def create_low_consumption_with_ratio_dict(combined_df, max_threshold, fluctuation_ratio_threshold):
+
+    """
+    Create a dictionary where the key is each date, and the value is a list of site_ids
+    that exhibit low consumption (both low peak and low fluctuation) on that day.
+    
+    Parameters:
+        combined_df (pd.DataFrame): DataFrame with Timestamp as index and site_ids as columns, containing household consumption data.
+        max_threshold (float): Maximum allowable daily consumption value to qualify as low consumption.
+        fluctuation_ratio_threshold (float): Maximum allowable peak-to-minimum consumption ratio to qualify as low fluctuation.
+
+    Returns:
+        dict: Dictionary with dates as keys and lists of site_ids that meet the criteria as values.
+    """
+    combined_df_low_consumption = combined_df.copy()
+    combined_df_low_consumption['Timestamp'] = pd.to_datetime(combined_df_low_consumption['Timestamp'])
+    combined_df_low_consumption.set_index('Timestamp', inplace=True)
+    
+    # Get the full date range from the data
+    date_range = pd.date_range(
+        start=combined_df_low_consumption.index.min().date(),
+        end=combined_df_low_consumption.index.max().date(),
+        freq='D'
+    )
+    
+    # Initialize dictionary with all dates
+    low_consumption_dict = {date: [] for date in date_range.date}
+    
+    # Fixed number of readings per day (48 readings = half-hourly data)
+    readings_per_day = 48
+    
+    # Iterate through each site (column) in the DataFrame
+    for site_id in combined_df_low_consumption.columns:
+        # Resample the site data by day to get daily stats
+        daily_stats = combined_df_low_consumption[site_id].resample('D').agg(['count', 'max', 'min'])
+        
+        # Calculate the peak-to-minimum ratio for each day
+        daily_stats['fluctuation_ratio'] = daily_stats['max'] / daily_stats['min'].replace(0, float('inf'))
+        
+        # Find days that meet both conditions:
+        # 1. Full day of readings (48)
+        # 2. Maximum consumption <= max_threshold
+        # 3. Fluctuation ratio <= fluctuation_ratio_threshold
+        low_consumption_days = daily_stats[
+            (daily_stats['count'] >= readings_per_day) &
+            (daily_stats['max'] <= max_threshold) &
+            (daily_stats['fluctuation_ratio'] <= fluctuation_ratio_threshold)
+        ].index
+        
+        # Add site_id to the appropriate dates in the dictionary
+        for day in low_consumption_days:
+            low_consumption_dict[day.date()].append(site_id)
+    
     return low_consumption_dict
