@@ -420,6 +420,7 @@ def compare_cluster_sizes(rlp_dict, cluster_type, min_clusters=4, max_clusters=1
     return metrics_df, best_clusters, optimal_profile_classes
 
 def print_cluster_comparison_report(metrics_df, best_clusters):
+
     """
     Print a formatted report of the cluster comparison results.
     
@@ -440,3 +441,57 @@ def print_cluster_comparison_report(metrics_df, best_clusters):
         if metric in metrics_df.columns:
             score = metrics_df.loc[n_clusters, metric]
             print(f"Score: {score:.4f}")
+
+
+
+def analyze_profile_classes(rlp_aggregated, profile_classes):
+    """
+    Analyzes profile classes sizes and visualizes the largest class.
+    
+    Parameters:
+    rlp_aggregated (pd.DataFrame): The original RLP data
+    profile_classes (pd.DataFrame): DataFrame containing profile class assignments
+    
+    Returns:
+    tuple: (class_sizes, fig) - DataFrame with class sizes and the matplotlib figure
+    """
+    # Calculate size of each profile class
+    class_sizes = profile_classes['Profile_Class'].value_counts().sort_index()
+    print("\nProfile Class Sizes:")
+    print("-------------------")
+    for class_num, size in class_sizes.items():
+        print(f"Profile Class {class_num}: {size} members")
+        
+    # Find the largest profile class
+    largest_class = class_sizes.idxmax()
+    largest_class_members = profile_classes[profile_classes['Profile_Class'] == largest_class].index
+    
+    # Create visualization for largest class
+    fig, ax = plt.subplots(figsize=(12, 6))
+    
+    # Plot individual load profiles
+    x_values = np.arange(48)
+    for member in largest_class_members:
+        ax.plot(x_values, rlp_aggregated[member], color='blue', alpha=0.1)
+        
+    # Plot mean profile
+    mean_profile = rlp_aggregated[largest_class_members].mean(axis=1)
+    ax.plot(x_values, mean_profile, color='red', linewidth=2, label='Mean Profile')
+    
+    # Customize plot
+    ax.set_title(f'Load Profiles for Profile Class {largest_class} (Largest Class)', fontsize=12)
+    ax.set_xlabel('Time of Day', fontsize=12)
+    ax.set_ylabel('Load', fontsize=12)
+    ax.set_xticks(range(0, 48, 2))
+    ax.set_xticklabels([f"{i // 2:02d}:00" for i in range(0, 48, 2)])
+    ax.tick_params(axis='x', labelrotation=45)
+    ax.grid(True, which='both', linestyle=':', alpha=0.2)
+    ax.legend()
+    
+    plt.tight_layout()
+    
+    return class_sizes, fig
+
+# Usage example:
+# class_sizes, fig = analyze_profile_classes(rlp_aggregated, Profile_Classes)
+# plt.show()
