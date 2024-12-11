@@ -120,11 +120,11 @@ def fit_multinomial_regression(df, formula, numeric_columns, categorical_columns
         # Filter extreme temperatures if needed
         df_processed = df_processed[df_processed['min_air_temperature'] >= -10.8]
         
-        
+        print(len(df_processed))
         # Center and scale numeric variables
-        for col in numeric_columns:
-            if col in df_processed.columns:
-                df_processed[col] = (df_processed[col] - df_processed[col].mean()) / df_processed[col].std()
+        # for col in numeric_columns:
+        #     if col in df_processed.columns:
+        #         df_processed[col] = (df_processed[col] - df_processed[col].mean()) / df_processed[col].std()
 
         # Recategorize climate zones with meaningful labels
         climate_zone_mapping = {
@@ -149,20 +149,16 @@ def fit_multinomial_regression(df, formula, numeric_columns, categorical_columns
         )
 
 
-        # Handle profile class separately
-        df_processed['profile_class'] = pd.Categorical(
-            df_processed['profile_class'],
-            categories=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-            ordered=True
-        )
+        # set Class 0 as the reference catgory
+        df_processed['profile_class'] = df_processed['profile_class'].astype('category')
 
+    
         # Get design matrix using patsy with explicit categorization
         y, X = patsy.dmatrices(
             formula,
             data=df_processed,
             return_type='dataframe'
         )
-        
         # Check for perfect separation
         X_array = X.values
         if np.any(np.abs(X_array) > 1e10):
@@ -178,7 +174,8 @@ def fit_multinomial_regression(df, formula, numeric_columns, categorical_columns
             disp=True,
             full_output=True
         )
-        
+        print("Number of observations:", result.nobs)
+
         # Verify the result
         if not result.mle_retvals['converged']:
             print("Warning: Model may not have fully converged")
@@ -195,3 +192,84 @@ def fit_multinomial_regression(df, formula, numeric_columns, categorical_columns
     except Exception as e:
         error_message = f"Error fitting model: {str(e)}"
         return None, error_message
+    
+
+
+import itertools
+from typing import List, Dict, Tuple
+
+def perform_bic_model_selection(
+    df: pd.DataFrame,
+    numeric_columns: List[str],
+    categorical_columns: List[str]
+) -> Dict:
+    """
+    Perform BIC-based model selection for multinomial regression models using only main effects.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    numeric_columns (List[str]): List of numeric predictor columns
+    categorical_columns (List[str]): List of categorical predictor columns
+    
+    Returns:
+    Dict: Dictionary containing results of model selection
+    """
+    results = {}
+    
+    # Generate all possible combinations of predictors
+    all_predictors = numeric_columns + categorical_columns
+    
+    # Test models with different combinations of predictors
+    for r in range(1, len(all_predictors) + 1):
+        for predictor_combo in itertools.combinations(all_predictors, r):
+            # Create formula for current combination
+            predictors = ' + '.join(predictor_combo)
+            formula = f'profile_class ~ {predictors}'
+            
+            # Fit model and get BIC
+            result, error = analyze_multinomial_regression(
+                df, 
+                formula, 
+                [col for col in predictor_combo if col in numeric_columns],
+                [col for col in predictor_combo if col in categorical_columns]
+            )
+            
+            if result is not None and error is None:
+                results[formula] = {
+                    'bic': result.bic,
+                    'aic': result.aic,
+                    'log_likelihood': result.llf,
+                    'n_parameters': len(result.params),
+                    'converged': result.mle_retvals['converged']
+                }
+    
+    # Sort results by BIC
+    sorted_results = dict(sorted(results.items(), key=lambda x: x[1]['bic']))
+    
+    # Add rankings and BIC differences
+    min_bic = min(result['bic'] for result in results.values())
+    for formula in sorted_results:
+        sorted_results[formula]['delta_bic'] = sorted_results[formula]['bic'] - min_bic
+    
+    return sorted_results
+
+def print_model_selection_results(results: Dict, top_n: int = 5) -> None:
+    """
+    Print the results of model selection in a formatted way.
+    
+    Parameters:
+    results (Dict): Results dictionary from perform_bic_model_selection
+    top_n (int): Number of top models to display
+    """
+    print("\nTop {} Models by BIC:".format(top_n))
+    print("-" * 80)
+    print(f"{'Formula':<40} {'BIC':<12} {'Delta BIC':<12} {'Converged':<10}")
+    print("-" * 80)
+    
+    for i, (formula, stats) in enumerate(results.items()):
+        if i >= top_n:
+            break
+        print(f"{formula} "
+              f"{stats['bic']:<12.2f} "
+              f"{stats['delta_bic']:<12.2f} "
+              f"{str(stats['converged']):<10}")

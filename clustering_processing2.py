@@ -48,19 +48,9 @@ def check_number_of_labels(n_labels, n_samples):
         raise ValueError("Number of labels is %d. Valid values are 2 "
                          "to n_samples - 1 (inclusive)" % n_labels)
 
-
 def mean_index_adequacy(X, labels):
     """
-    Calculate Mean Index Adequacy (MIA) as described in:
-    "Optimal Selection of Clustering Algorithm via Multi-Criteria Decision 
-    Analysis (MCDA) for Load Profiling Applications" DOI: 10.3390/app8020237
-    
-    Parameters:
-    X (ndarray): Data matrix of shape (n_samples, n_features)
-    labels (ndarray): Cluster labels for each sample (length n_samples)
-    
-    Returns:
-    mia (float): Mean Index Adequacy score
+    Calculate Mean Index Adequacy (MIA)
     """
     # Ensure X and labels have compatible dimensions
     X, labels = check_X_y(X, labels)
@@ -151,16 +141,7 @@ def evaluate_clustering_kmeans(rlp_dict, num_clusters):
 def evaluate_clustering_kmeans_constrained(rlp_dict, num_clusters, size_max):
     """
     Perform time series clustering and calculate evaluation metrics
-    
-    Parameters:
-    rlp_dict (pd.DataFrame): DataFrame with RLP data
-    num_clusters (int): Number of clusters to create
-    
-    Returns:
-    dict: Dictionary containing clustering metrics and labels
     """
-    # visualize profile classes (mean RLP)
-    
     rlp_aggregated = aggregate_rlps(rlp_dict)
     df = rlp_aggregated
 
@@ -168,11 +149,9 @@ def evaluate_clustering_kmeans_constrained(rlp_dict, num_clusters, size_max):
     non_c0_columns = [col for col in df.columns if not col.endswith("C0")]
     c0_columns = [col for col in df.columns if col.endswith("C0")]
 
-    # Ensure we're only fitting columns with valid data (i.e., drop columns with missing values if necessary)
-    kmeans = KMeansConstrained(n_clusters=num_clusters, random_state= 36, size_max = size_max)
+    kmeans = KMeansConstrained(n_clusters=num_clusters, random_state=36, size_max=size_max)
     X = df[non_c0_columns].T
 
-    # Transpose the data (sites as columns and half-hour periods as rows)
     kmeans.fit(X)
     cluster_labels = kmeans.labels_
     
@@ -181,9 +160,8 @@ def evaluate_clustering_kmeans_constrained(rlp_dict, num_clusters, size_max):
     dbi = davies_bouldin_score(X, cluster_labels)
     mia = mean_index_adequacy(X, cluster_labels)
     
-    # Calculate combined index
-    combined_index = (dbi * mia) / silhouette
-    
+    # Calculate combined index correctly
+    combined_index = (dbi * mia) / silhouette if silhouette != 0 else float('inf')
     # Create Profile Classes DataFrame
     Profile_Classes = pd.DataFrame(index=rlp_aggregated.columns)
     Profile_Classes.loc[non_c0_columns, 'Profile_Class'] = cluster_labels + 1
@@ -297,6 +275,161 @@ def evaluate_clustering_kmedoids(rlp_dict, num_clusters):
     }
 
 
+
+def calculate_load_factor(profile):
+    """Calculate load factor for a given load profile."""
+    peak_load = np.max(profile)
+    avg_load = np.mean(profile)
+    return avg_load / peak_load if peak_load != 0 else 0
+
+def calculate_time_series_features(profile):
+    """Calculate relevant time series features for load profiles."""
+    # Basic statistics
+    peak_load = np.max(profile)
+    avg_load = np.mean(profile)
+    min_load = np.min(profile)
+    
+    features = {
+        'load_factor': avg_load / peak_load if peak_load != 0 else 0#,
+        # 'peak_to_average': peak_load / avg_load if avg_load != 0 else 0,
+        # 'valley_to_peak': min_load / peak_load if peak_load != 0 else 0,
+        # 'coefficient_variation': np.std(profile) / avg_load if avg_load != 0 else 0,
+        # 'ramp_rate': np.mean(np.abs(np.diff(profile))),
+        #'peak_hour': np.argmax(profile)#,
+        # 'load_factor_morning': np.mean(profile[12:24]) / peak_load if peak_load != 0 else 0,
+        # 'load_factor_evening': np.mean(profile[30:42]) / peak_load if peak_load != 0 else 0,
+    }
+    
+    return features
+
+def calculate_time_series_features(profile):
+    """Calculate relevant time series features for load profiles."""
+    # Basic statistics
+    peak_load = np.max(profile)
+    avg_load = np.mean(profile)
+    min_load = np.min(profile)
+    
+    features = {
+        'load_factor': avg_load / peak_load if peak_load != 0 else 0,
+        'peak_hour': np.argmax(profile),
+        'ramp_rate': np.mean(np.abs(np.diff(profile)))
+    }
+    
+    return features
+
+def evaluate_clustering_kmeans_load_factor(
+    rlp_dict, 
+    num_clusters, 
+    min_cluster_size=None, 
+    max_cluster_size=None, 
+    feature_weights=None
+):
+    """
+    Perform time series clustering incorporating load factor as an additional feature
+    
+    Parameters:
+    -----------
+    rlp_dict (dict): Dictionary with Representative Load Profiles (RLPs)
+    num_clusters (int): Number of clusters to create
+    min_cluster_size (int, optional): Minimum number of sites per cluster
+    max_cluster_size (int, optional): Maximum number of sites per cluster
+    feature_weights (dict, optional): Weights for different feature types
+    
+    Returns:
+    --------
+    dict: Dictionary containing clustering metrics and results
+    """
+    # Set default feature weights if not provided
+    if feature_weights is None:
+        feature_weights = {
+            'raw_profile': 0.7,
+            'summary_stats': 0.3
+        }
+    
+    # Separate regular clusters from low consumption clusters (C0)
+    # Assuming keys in rlp_dict follow the format 'date_ClusterX'
+    non_c0_rlp = {k: v for k, v in rlp_dict.items() if not k.endswith('_C0')}
+    c0_rlp = {k: v for k, v in rlp_dict.items() if k.endswith('_C0')}
+    
+    # Prepare data for clustering
+    X = np.array(list(non_c0_rlp.values()))
+    
+    # Calculate features for each profile
+    features_list = []
+    for profile in X:
+        features = calculate_time_series_features(profile)
+        features_list.append(features)
+    
+    # Convert features to array and scale
+    features_df = pd.DataFrame(features_list, index=list(non_c0_rlp.keys()))
+    scaler = MinMaxScaler()
+    features_scaled = scaler.fit_transform(features_df)
+    
+    # Combine scaled data using weights
+    X_combined = np.hstack([
+        X * feature_weights['raw_profile'],
+        features_scaled * feature_weights['summary_stats']
+    ])
+    
+    # Adjust number of clusters if needed
+    actual_num_clusters = min(num_clusters, len(X))
+    if actual_num_clusters < num_clusters:
+        print(f"Warning: Reducing clusters to {actual_num_clusters}")
+    
+    # Perform constrained clustering
+    kmeans = KMeansConstrained(
+        n_clusters=actual_num_clusters,
+        random_state=42,
+        size_min=min_cluster_size,
+        size_max=max_cluster_size
+    )
+    labels = kmeans.fit_predict(X_combined)
+    
+    # Calculate metrics
+    try:
+        silhouette = silhouette_score(X_combined, labels)
+        dbi = davies_bouldin_score(X_combined, labels)
+        
+        # Approximate Mean Index Adequacy (MIA) 
+        # Note: This is a simplified approximation as the original MIA function is not provided
+        def mean_index_adequacy(X, labels):
+            n_clusters = len(np.unique(labels))
+            return np.mean([np.mean(np.abs(X[labels == c] - X[labels == c].mean(axis=0))) for c in range(n_clusters)])
+        
+        mia = mean_index_adequacy(X_combined, labels)
+        combined_index = (dbi * mia) / silhouette if silhouette != 0 else float('inf')
+    except Exception as e:
+        print(f"Warning: Could not calculate metrics: {str(e)}")
+        silhouette = None
+        dbi = None
+        mia = None
+        combined_index = None
+    
+    # Prepare Profile Classes DataFrame
+    non_c0_keys = list(non_c0_rlp.keys())
+    c0_keys = list(c0_rlp.keys())
+    
+    Profile_Classes = pd.DataFrame(index=non_c0_keys + c0_keys)
+    Profile_Classes.loc[non_c0_keys, 'Profile_Class'] = labels + 1
+    Profile_Classes.loc[c0_keys, 'Profile_Class'] = 0
+    
+    # Calculate load factors for non-C0 profiles
+    load_factors = {}
+    for key, profile in non_c0_rlp.items():
+        peak_load = np.max(profile)
+        avg_load = np.mean(profile)
+        load_factors[key] = avg_load / peak_load if peak_load != 0 else 0
+    
+    Profile_Classes.loc[non_c0_keys, 'Load_Factor'] = pd.Series(load_factors)
+    
+    return {
+        'silhouette_score': silhouette,
+        'davies_bouldin_index': dbi,
+        'mean_index_adequacy': mia,
+        'combined_index': combined_index,
+        'profile_classes': Profile_Classes
+    }
+
 def visualize_profile_classes(rlp_aggregated, profile_classes, num_clusters):
     """
     Visualize the profile classes from clustering results
@@ -324,7 +457,7 @@ def visualize_profile_classes(rlp_aggregated, profile_classes, num_clusters):
         
         # Plot individual observations
         for col in cluster_data.columns:
-            ax.plot(x_values, cluster_data[col], color=colors[i], alpha=0.005)
+            ax.plot(x_values, cluster_data[col], color=colors[i], alpha=0.001)
         
         # Plot cluster mean
         cluster_mean = cluster_data.mean(axis=1)
@@ -346,7 +479,7 @@ def visualize_profile_classes(rlp_aggregated, profile_classes, num_clusters):
     return fig, ax
 
 
-def compare_cluster_sizes(rlp_dict, cluster_type, min_clusters=4, max_clusters=15, save_plots=False, plot_dir=None, size_max=None):
+def compare_cluster_sizes(rlp_dict, cluster_type, min_clusters=5, max_clusters=15, save_plots=False, plot_dir=None, size_max=None):
     """
     Compare different numbers of clusters and their evaluation metrics.
     
@@ -380,6 +513,9 @@ def compare_cluster_sizes(rlp_dict, cluster_type, min_clusters=4, max_clusters=1
                 results = evaluate_clustering_kmeans_constrained(rlp_dict, n_clusters, size_max)
             elif cluster_type == "kmedoids":
                 results = evaluate_clustering_kmedoids(rlp_dict, n_clusters)
+            elif cluster_type == "kmeans_load_factor":
+                 results = evaluate_clustering_kmeans_load_factor(rlp_dict, n_clusters)
+
             
             cluster_results[n_clusters] = {
                 'Silhouette Score': results['silhouette_score'],
@@ -471,7 +607,7 @@ def analyze_profile_classes(rlp_aggregated, profile_classes):
     
     # Plot individual load profiles
     x_values = np.arange(48)
-    for member in largest_class_members:
+    for member in largest_class_members[400:700]:
         ax.plot(x_values, rlp_aggregated[member], color='blue', alpha=0.1)
         
     # Plot mean profile
@@ -492,6 +628,3 @@ def analyze_profile_classes(rlp_aggregated, profile_classes):
     
     return class_sizes, fig
 
-# Usage example:
-# class_sizes, fig = analyze_profile_classes(rlp_aggregated, Profile_Classes)
-# plt.show()

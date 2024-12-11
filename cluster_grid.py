@@ -88,7 +88,7 @@ def create_cluster_grid_rep_LP_constrained(df, start_date, end_date, num_cluster
     metrics_dict = {}  # New dictionary to store metrics
 
     for col, date in enumerate(dates):
-        print("Processing", date)
+        #print("Processing", date)
         
         # Get the data for the current day
         day_df = df[df['Timestamp'].dt.date == date.date()]
@@ -982,3 +982,218 @@ def create_profile_classes_mean_KMeansConstrained(rlp_aggregated, num_prof_class
     plt.show()
 
     return Profile_Classes
+
+
+
+def calculate_time_series_features(profile):
+    """Calculate relevant time series features for load profiles."""
+    # Basic statistics
+    peak_load = np.max(profile)
+    avg_load = np.mean(profile)
+    min_load = np.min(profile)
+    
+    features = {
+        'load_factor': avg_load / peak_load if peak_load != 0 else 0#,
+        # 'peak_to_average': peak_load / avg_load if avg_load != 0 else 0,
+        # 'valley_to_peak': min_load / peak_load if peak_load != 0 else 0,
+        # 'coefficient_variation': np.std(profile) / avg_load if avg_load != 0 else 0,
+        # 'ramp_rate': np.mean(np.abs(np.diff(profile))),
+        #'peak_hour': np.argmax(profile)#,
+        # 'load_factor_morning': np.mean(profile[12:24]) / peak_load if peak_load != 0 else 0,
+        # 'load_factor_evening': np.mean(profile[30:42]) / peak_load if peak_load != 0 else 0,
+    }
+    
+    return features
+
+
+def process_multiple_days(df, start_date, end_date, num_clusters, low_consumption_sites_dict, 
+                        min_cluster_size=None, max_cluster_size=None, feature_weights=None):
+    """
+    Process multiple days of data using enhanced clustering with both raw profiles and features.
+    
+    Parameters:
+    -----------
+    df : pandas DataFrame
+        DataFrame containing pre-scaled load profiles with 'Timestamp' column
+    start_date, end_date : str or datetime
+        Start and end dates for processing
+    num_clusters : int
+        Number of clusters to create
+    low_consumption_sites_dict : dict
+        Dictionary of low consumption sites for each date
+    min_cluster_size, max_cluster_size : int or None
+        Minimum and maximum cluster sizes for constrained clustering
+    feature_weights : dict, optional
+        Dictionary of weights for different features (default: 0.7 for profiles, 0.3 for features)
+    """
+    if feature_weights is None:
+        feature_weights = {
+            'raw_profile': 0.7,
+            'summary_stats': 0.3
+        }
+    
+    dates = pd.date_range(start=pd.to_datetime(start_date).date(), 
+                         end=pd.to_datetime(end_date).date())
+    
+    rlp_dict = {}
+    cluster_sites_dict = {}
+    metrics_dict = {}
+    
+    for date in dates:
+        # Get the data for the current day
+        day_df = df[df['Timestamp'].dt.date == date.date()]
+        
+        if len(day_df) != 48:
+            print(f"Warning: Incomplete day {date.date()} with {len(day_df)} timestamps")
+            continue
+            
+        # Get sites with complete data
+        sites = day_df.drop(columns=['Timestamp']).columns
+        complete_data_sites = sites[~day_df.drop(columns=['Timestamp']).isna().any()].tolist()
+        
+        if not complete_data_sites:
+            print(f"Warning: No sites with complete data for {date.date()}")
+            continue
+            
+        # Extract profiles
+        X = day_df[['Timestamp'] + complete_data_sites]
+        X = X.drop(columns=['Timestamp'])
+
+        # Identify low consumption sites
+        low_consumption_sites = [site for site in low_consumption_sites_dict.get(date.date(), [])
+                               if site in complete_data_sites]
+        
+        X_filtered = X.drop(columns=low_consumption_sites, errors='ignore')
+        filtered_site_ids = X_filtered.columns
+        
+        # Filter out low consumption sites
+        valid_sites = [site for site in complete_data_sites if site not in low_consumption_sites]
+        X_filtered = day_df[valid_sites].values.T
+        
+        if len(valid_sites) == 0:
+            print(f"Warning: No valid sites remaining after filtering for {date.date()}")
+            continue
+        
+        # Calculate features for filtered sites
+        features_list = []
+        for profile in X_filtered:
+            features = calculate_time_series_features(profile)
+            features_list.append(features)
+        
+        # Convert features to array and scale
+        features_df = pd.DataFrame(features_list, index=valid_sites)
+        scaler = MinMaxScaler()
+        features_scaled = scaler.fit_transform(features_df)
+        
+        # Combine scaled data using weights
+        X_combined = np.hstack([
+            X_filtered * feature_weights['raw_profile'],
+            features_scaled * feature_weights['summary_stats']
+        ])
+        
+        # Adjust number of clusters if needed
+        actual_num_clusters = min(num_clusters, len(valid_sites))
+        if actual_num_clusters < num_clusters:
+            print(f"Warning: Reducing clusters to {actual_num_clusters} for {date.date()}")
+        
+        if actual_num_clusters == 1:
+            print(f"Warning: Only one cluster for {date.date()}")
+            metrics_dict[date.date()] = {
+                'silhouette': None,
+                'davies_bouldin': None,
+                'mia': None,
+                'combined_index': None
+            }
+            continue
+        
+        # Perform clustering
+        kmeans = KMeansConstrained(
+            n_clusters=actual_num_clusters,
+            random_state=42,
+            size_min=min_cluster_size,
+            size_max=max_cluster_size
+        )
+        labels = kmeans.fit_predict(X_combined)
+        centroids = kmeans.cluster_centers_
+        
+        # Calculate metrics
+        try:
+            silhouette = silhouette_score(X_combined, labels)
+            dbi = davies_bouldin_score(X_combined, labels)
+            mia = mean_index_adequacy(X_combined, labels)
+            combined_index = (dbi * mia) / silhouette if silhouette != 0 else float('inf')
+            
+            metrics_dict[date.date()] = {
+                'silhouette': silhouette,
+                'davies_bouldin': dbi,
+                'mia': mia,
+                'combined_index': combined_index
+            }
+        except Exception as e:
+            print(f"Warning: Could not calculate metrics for {date.date()}: {str(e)}")
+            metrics_dict[date.date()] = {
+                'silhouette': None,
+                'davies_bouldin': None,
+                'mia': None,
+                'combined_index': None
+            }
+        
+        # For each cluster, find the load profile closest to the centroid
+        for cluster in range(actual_num_clusters):
+            # Get indices of sites in this cluster
+            cluster_mask = labels == cluster
+            cluster_profiles = X_filtered[cluster_mask]
+            cluster_combined = X_combined[cluster_mask]  # Combined data
+
+            
+            if len(cluster_profiles) > 0:  # Check if cluster is not empty
+                # Calculate distances from each profile to the centroid
+                distances = np.linalg.norm(cluster_combined - centroids[cluster], axis=1)
+                
+                # Find the index of the profile closest to centroid
+                closest_profile_idx = np.argmin(distances)
+                
+                # Get the actual load profile closest to centroid
+                rlp = cluster_profiles[closest_profile_idx]
+                
+                # Store RLP in dictionary
+                rlp_dict[f'{date.date()}_C{cluster+1}'] = rlp
+                
+                # Store site_IDs for this cluster
+                cluster_sites = filtered_site_ids[labels == cluster].tolist()
+                cluster_sites_dict[f'{date.date()}_C{cluster+1}'] = cluster_sites
+    
+        # Handle the low consumption sites with complete data
+        if low_consumption_sites:
+            low_consumption_df = X[low_consumption_sites]
+            if not low_consumption_df.empty:
+                # Instead of using mean, find the most representative low consumption profile
+                low_consumption_profiles = low_consumption_df.T.values
+                mean_profile = low_consumption_df.mean(axis=1).values
+                
+                # Calculate distances from each profile to the mean
+                distances = np.linalg.norm(low_consumption_profiles - mean_profile, axis=1)
+                
+                # Find the most representative profile (closest to mean)
+                representative_idx = np.argmin(distances)
+                low_consumption_rlp = low_consumption_profiles[representative_idx]
+                
+                # Store the RLP for the low consumption sites as cluster 0
+                rlp_dict[f'{date.date()}_C0'] = low_consumption_rlp
+                cluster_sites_dict[f'{date.date()}_C0'] = low_consumption_sites
+    
+    # Convert results to DataFrames
+    cluster_sites_df = pd.DataFrame.from_dict(cluster_sites_dict, orient='index')
+    cluster_sites_df.index.name = 'Date_Cluster'
+    cluster_sites_df = cluster_sites_df.reset_index().melt(
+        id_vars=['Date_Cluster'],
+        var_name='temp',
+        value_name='site_ID'
+    ).sort_values(by="Date_Cluster")
+    cluster_sites_df = cluster_sites_df.dropna(subset=['site_ID']).drop('temp', axis=1)
+    cluster_sites_df = cluster_sites_df.reset_index(drop=True)
+    
+    metrics_df = pd.DataFrame.from_dict(metrics_dict, orient='index')
+    metrics_df.index.name = 'Date'
+    
+    return rlp_dict, cluster_sites_df, metrics_df
