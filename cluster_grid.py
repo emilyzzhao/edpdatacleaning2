@@ -993,12 +993,12 @@ def calculate_time_series_features(profile):
     min_load = np.min(profile)
     
     features = {
-        'load_factor': avg_load / peak_load if peak_load != 0 else 0#,
+        'load_factor': avg_load / peak_load if peak_load != 0 else 0,
+        'ramp_rate': np.mean(np.abs(np.diff(profile))),
+        'peak_hour': np.argmax(profile)#,
         # 'peak_to_average': peak_load / avg_load if avg_load != 0 else 0,
         # 'valley_to_peak': min_load / peak_load if peak_load != 0 else 0,
         # 'coefficient_variation': np.std(profile) / avg_load if avg_load != 0 else 0,
-        # 'ramp_rate': np.mean(np.abs(np.diff(profile))),
-        #'peak_hour': np.argmax(profile)#,
         # 'load_factor_morning': np.mean(profile[12:24]) / peak_load if peak_load != 0 else 0,
         # 'load_factor_evening': np.mean(profile[30:42]) / peak_load if peak_load != 0 else 0,
     }
@@ -1007,6 +1007,7 @@ def calculate_time_series_features(profile):
 
 
 def process_multiple_days(df, start_date, end_date, num_clusters, low_consumption_sites_dict, 
+                          
                         min_cluster_size=None, max_cluster_size=None, feature_weights=None):
     """
     Process multiple days of data using enhanced clustering with both raw profiles and features.
@@ -1084,7 +1085,8 @@ def process_multiple_days(df, start_date, end_date, num_clusters, low_consumptio
         features_df = pd.DataFrame(features_list, index=valid_sites)
         scaler = MinMaxScaler()
         features_scaled = scaler.fit_transform(features_df)
-        
+        assert np.isclose(sum(feature_weights.values()), 1.0), "Weights must sum to 1"
+
         # Combine scaled data using weights
         X_combined = np.hstack([
             X_filtered * feature_weights['raw_profile'],
@@ -1197,3 +1199,81 @@ def process_multiple_days(df, start_date, end_date, num_clusters, low_consumptio
     metrics_df.index.name = 'Date'
     
     return rlp_dict, cluster_sites_df, metrics_df
+
+
+
+import pandas as pd
+import numpy as np
+
+def analyze_yearly_cluster_sizes(cluster_sites_df, start_date='2023-01-01', end_date='2023-12-31'):
+    """
+    Analyze cluster sizes for all dates in a given year.
+    
+    Parameters:
+    -----------
+    cluster_sites_df : pandas.DataFrame
+        DataFrame with 'Date_Cluster' column and 'site_ID' column
+    start_date : str, optional
+        Start date of the analysis (default: '2023-01-01')
+    end_date : str, optional
+        End date of the analysis (default: '2023-12-31')
+    
+    Returns:
+    --------
+    dict
+        A dictionary with yearly cluster size statistics
+    """
+    # Convert start and end dates to datetime
+    start_date = pd.to_datetime(start_date)
+    end_date = pd.to_datetime(end_date)
+    
+    # Generate all dates in the year
+    all_dates = pd.date_range(start=start_date, end=end_date)
+    
+    # Create a dictionary to store daily cluster size analysis
+    daily_cluster_sizes = {}
+    
+    for date in all_dates:
+        # Convert the date to the format in the DataFrame (YYYY-MM-DD)
+        date_str = date.strftime('%Y-%m-%d')
+        
+        # Filter for rows matching the specific date
+        daily_clusters = cluster_sites_df[cluster_sites_df['Date_Cluster'].str.startswith(date_str)]
+        
+        # Skip if no clusters for this date
+        if daily_clusters.empty:
+            continue
+        
+        # Count the number of sites in each cluster
+        cluster_counts = daily_clusters['Date_Cluster'].value_counts()
+        
+        # Count clusters with 1 or 2 sites
+        small_clusters_1 = sum(cluster_counts == 1)
+        small_clusters_2 = sum(cluster_counts == 2)
+        
+        # Store daily analysis
+        daily_cluster_sizes[date] = {
+            'min_cluster_size': cluster_counts.min(),
+            'max_cluster_size': cluster_counts.max(),
+            'mean_cluster_size': cluster_counts.mean(),
+            'clusters_with_1_site': small_clusters_1,
+            'clusters_with_2_sites': small_clusters_2,
+            'total_clusters': len(cluster_counts)
+        }
+    
+    # Compute summary statistics
+    summary_stats = {
+        'average_min_cluster_size': np.mean([day['min_cluster_size'] for day in daily_cluster_sizes.values()]),
+        'average_max_cluster_size': np.mean([day['max_cluster_size'] for day in daily_cluster_sizes.values()]),
+        'total_clusters_with_1_sites': sum([day['clusters_with_1_site'] for day in daily_cluster_sizes.values()]),
+        'total_clusters_with_2_sites': sum([day['clusters_with_2_sites'] for day in daily_cluster_sizes.values()]),
+        'days_analyzed': len(daily_cluster_sizes),
+        'total_days_in_year': len(all_dates)
+    }
+    
+    return {
+        'daily_cluster_sizes': daily_cluster_sizes,
+        'summary_statistics': summary_stats
+    }
+
+

@@ -628,3 +628,169 @@ def analyze_profile_classes(rlp_aggregated, profile_classes):
     
     return class_sizes, fig
 
+def analyze_zero_class(rlp_aggregated, profile_classes):
+    """
+    Analyzes profile classes sizes and visualizes the largest class.
+    
+    Parameters:
+    rlp_aggregated (pd.DataFrame): The original RLP data
+    profile_classes (pd.DataFrame): DataFrame containing profile class assignments
+    
+    Returns:
+    Visualization of zero (baseline) c;ass
+=    """
+
+    zero_class_members = profile_classes[profile_classes['Profile_Class'] == 0].index
+    
+    # Create visualization for largest class
+    fig, ax = plt.subplots(figsize=(12, 6))
+    
+    # Plot individual load profiles
+    x_values = np.arange(48)
+    for member in zero_class_members[400:700]:
+        ax.plot(x_values, rlp_aggregated[member], color='blue', alpha=0.1)
+        
+    # Plot mean profile
+    mean_profile = rlp_aggregated[zero_class_members].mean(axis=1)
+    ax.plot(x_values, mean_profile, color='red', linewidth=2, label='Mean Profile')
+    
+    # Customize plot
+    ax.set_title(f'Load Profiles for Profile Class 0', fontsize=12)
+    ax.set_xlabel('Time of Day', fontsize=12)
+    ax.set_ylabel('Load', fontsize=12)
+    ax.set_xticks(range(0, 48, 2))
+    ax.set_xticklabels([f"{i // 2:02d}:00" for i in range(0, 48, 2)])
+    ax.tick_params(axis='x', labelrotation=45)
+    ax.grid(True, which='both', linestyle=':', alpha=0.2)
+    ax.legend()
+    
+    plt.tight_layout()
+    
+    return fig
+
+def merge_site_weather_data(profile_df, survey_df, weather_folder_path):
+    """
+    Merges site profile data with survey information and weather data.
+    Also checks for stations with incomplete data.
+    
+    Parameters:
+    -----------
+    profile_df : pandas DataFrame
+        DataFrame with dates as index and site_IDs as columns containing Profile_Class
+    survey_df : pandas DataFrame
+        DataFrame with site_IDs as index and columns for site characteristics
+    weather_folder_path : str
+        Path to the folder containing weather station data files
+        
+    Returns:
+    --------
+    tuple: (pandas DataFrame, dict)
+        - DataFrame: Merged dataset with all required information
+        - dict: Dictionary with station numbers as keys and number of missing days as values
+    """
+    # Step 1: Reshape profile_df to long format
+    profile_long = profile_df.reset_index().melt(
+        id_vars=['index'],
+        var_name='site_ID',
+        value_name='profile_class'
+    ).rename(columns={'index': 'date'})
+
+    survey_df['site_ID'] = survey_df['site_ID'].astype('str')
+    profile_long['site_ID'] = profile_long['site_ID'].astype('str')
+
+    # Step 2: Merge with survey data
+    merged_df = pd.merge(
+        profile_long,
+        survey_df[['site_ID', 'climate_zone', 'aircon_type_simplified', 'property_construction', 'weather_station_number', 'num_bedrooms', 'num_occupants']],
+        on='site_ID', how='left'
+    )
+    
+    merged_df['weather_station_number'] = merged_df['weather_station_number'].astype('Int64')
+    merged_df['date'] = pd.to_datetime(merged_df['date'])
+    merged_df.to_csv('merged_df.csv')
+    
+    # Create an empty DataFrame to store all weather data
+    all_weather_data = pd.DataFrame()
+    
+    # Dictionary to store stations with incomplete data
+    incomplete_stations = {}
+    
+    # Process each weather station
+    for station_number in merged_df['weather_station_number'].unique():
+        if pd.notna(station_number):
+            filename = f'daily_max_min_station_{int(station_number)}.csv'
+            filepath = os.path.join(weather_folder_path, filename)
+            
+            if os.path.exists(filepath):
+                try:
+                    # Load weather data
+                    weather_df = pd.read_csv(filepath)
+                    weather_df['date'] = pd.to_datetime(weather_df['date'])
+                    weather_df = weather_df.drop(columns=['station_number','state','max_wet_bulb_temperature','min_wet_bulb_temperature'])
+                    
+                    # Generate a full range of dates for 2023
+                    full_date_range = pd.date_range(start='2023-01-01', end='2023-12-31', freq='D')
+                
+                    # Reindex the dataframe to ensure we have an entry for each day
+                    weather_df = weather_df.set_index('date').reindex(full_date_range).rename_axis('date').reset_index()
+                    
+                    # Interpolate missing values in max and min air temperature columns
+                    weather_df['max_air_temperature'] = weather_df['max_air_temperature'].interpolate(method='linear', limit_direction='both')
+                    weather_df['min_air_temperature'] = weather_df['min_air_temperature'].interpolate(method='linear', limit_direction='both')
+                    
+                    # Check for missing days
+                    days_count = len(weather_df)
+                    if days_count < 365:
+                        incomplete_stations[int(station_number)] = 365 - days_count
+                    # Check for missing values in max and min air temperature
+                    if weather_df['max_air_temperature'].isna().all() or weather_df['min_air_temperature'].isna().all():
+                        incomplete_stations[int(station_number)] = 'all missing'
+                    
+                    
+                    # Add station number to weather data
+                    weather_df['weather_station_number'] = station_number
+                    
+                    
+                    # Append to all_weather_data
+                    all_weather_data = pd.concat([all_weather_data, weather_df], ignore_index=True)
+                    
+                except Exception as e:
+                    print(f"Error processing station {station_number}: {str(e)}")
+                    raise
+            else:
+                print(f"Warning: File not found for station {station_number}: {filepath}")
+                incomplete_stations[int(station_number)] = 365  # Mark as completely missing
+    
+    # Merge all weather data with main DataFrame
+    final_df = pd.merge(
+        merged_df,
+        all_weather_data,
+        on=['date', 'weather_station_number'],
+        how='left'
+    )
+    
+    # Remove rows where profile_class is missing
+    final_df = final_df.dropna(subset=['profile_class'])
+    
+    # Ensure columns are in desired order
+    column_order = [
+        'date', 'site_ID', 'profile_class', 'climate_zone', 
+        'aircon_type_simplified', 'property_construction', 'weather_station_number', 'num_bedrooms', 'num_occupants',
+        'max_air_temperature', 'min_air_temperature'
+    ]
+    
+    # Only select columns that exist in the DataFrame
+    existing_columns = [col for col in column_order if col in final_df.columns]
+    final_df = final_df[existing_columns]
+    
+    # Convert temperature columns to float
+    final_df['max_air_temperature'] = pd.to_numeric(final_df['max_air_temperature'], errors='coerce')
+    final_df['min_air_temperature'] = pd.to_numeric(final_df['min_air_temperature'], errors='coerce')
+    
+    
+    if incomplete_stations:
+        print("\nStations with incomplete data:")
+        for station, missing_days in incomplete_stations.items():
+            print(f"Station {station}: Missing {missing_days} days")
+    
+    return final_df, incomplete_stations

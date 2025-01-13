@@ -273,3 +273,43 @@ def print_model_selection_results(results: Dict, top_n: int = 5) -> None:
               f"{stats['bic']:<12.2f} "
               f"{stats['delta_bic']:<12.2f} "
               f"{str(stats['converged']):<10}")
+        
+
+
+def add_probabilities_to_dataframe(regression_df, prob_list, profile_class_names=None):
+    """
+    Add probability distributions as columns to the existing DataFrame.
+    
+    Parameters:
+    - regression_df: Original DataFrame with site characteristics
+    - prob_list: List of probability distributions
+    - profile_class_names: Optional list of profile class names
+    
+    Returns:
+    - DataFrame with added probability columns
+    """
+    # Create a copy of the input DataFrame to avoid modifying the original
+    combined_df = regression_df.copy()
+    
+    # Validate input lengths
+    if len(prob_list) != len(combined_df):
+        raise ValueError(f"Length of probability list ({len(prob_list)}) "
+                         f"does not match DataFrame length ({len(combined_df)})")
+    
+    # If profile class names not provided, create generic names
+    if profile_class_names is None:
+        # Assuming probabilities are for 9 profile classes based on your description
+        profile_class_names = [f'Profile_Class_{i+1}' for i in range(len(prob_list[0]))]
+    
+    # Validate profile class names
+    if len(profile_class_names) != len(prob_list[0]):
+        raise ValueError(f"Number of profile class names ({len(profile_class_names)}) "
+                         f"does not match number of probability distributions ({len(prob_list[0])})")
+    
+    # Add probability columns
+    for i, profile_class in enumerate(profile_class_names):
+        # Create a column with probabilities for this profile class
+        prob_column_name = f'{profile_class}_Probability'
+        combined_df[prob_column_name] = [probs[i] for probs in prob_list]
+    
+    return combined_df
