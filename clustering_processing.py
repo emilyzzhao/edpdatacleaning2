@@ -282,25 +282,25 @@ def calculate_load_factor(profile):
     avg_load = np.mean(profile)
     return avg_load / peak_load if peak_load != 0 else 0
 
-def calculate_time_series_features(profile):
-    """Calculate relevant time series features for load profiles."""
-    # Basic statistics
-    peak_load = np.max(profile)
-    avg_load = np.mean(profile)
-    min_load = np.min(profile)
+# def calculate_time_series_features(profile):
+#     """Calculate relevant time series features for load profiles."""
+#     # Basic statistics
+#     peak_load = np.max(profile)
+#     avg_load = np.mean(profile)
+#     min_load = np.min(profile)
     
-    features = {
-        'load_factor': avg_load / peak_load if peak_load != 0 else 0#,
-        # 'peak_to_average': peak_load / avg_load if avg_load != 0 else 0,
-        # 'valley_to_peak': min_load / peak_load if peak_load != 0 else 0,
-        # 'coefficient_variation': np.std(profile) / avg_load if avg_load != 0 else 0,
-        # 'ramp_rate': np.mean(np.abs(np.diff(profile))),
-        #'peak_hour': np.argmax(profile)#,
-        # 'load_factor_morning': np.mean(profile[12:24]) / peak_load if peak_load != 0 else 0,
-        # 'load_factor_evening': np.mean(profile[30:42]) / peak_load if peak_load != 0 else 0,
-    }
+#     features = {
+#         'load_factor': avg_load / peak_load if peak_load != 0 else 0#,
+#         # 'peak_to_average': peak_load / avg_load if avg_load != 0 else 0,
+#         # 'valley_to_peak': min_load / peak_load if peak_load != 0 else 0,
+#         # 'coefficient_variation': np.std(profile) / avg_load if avg_load != 0 else 0,
+#         # 'ramp_rate': np.mean(np.abs(np.diff(profile))),
+#         #'peak_hour': np.argmax(profile)#,
+#         # 'load_factor_morning': np.mean(profile[12:24]) / peak_load if peak_load != 0 else 0,
+#         # 'load_factor_evening': np.mean(profile[30:42]) / peak_load if peak_load != 0 else 0,
+#     }
     
-    return features
+#     return features
 
 def calculate_time_series_features(profile):
     """Calculate relevant time series features for load profiles."""
@@ -308,11 +308,14 @@ def calculate_time_series_features(profile):
     peak_load = np.max(profile)
     avg_load = np.mean(profile)
     min_load = np.min(profile)
-    
+    std_load = np.std(profile)
+
     features = {
         'load_factor': avg_load / peak_load if peak_load != 0 else 0,
         'peak_hour': np.argmax(profile),
-        'ramp_rate': np.mean(np.abs(np.diff(profile)))
+        'ramp_rate': np.mean(np.abs(np.diff(profile)))#,
+        #'coefficient_variation': std_load / avg_load if avg_load != 0 else 0
+
     }
     
     return features
@@ -377,11 +380,11 @@ def evaluate_clustering_kmeans_load_factor(
         print(f"Warning: Reducing clusters to {actual_num_clusters}")
     
     # Perform constrained clustering
-    kmeans = KMeansConstrained(
+    kmeans = TimeSeriesKMeans(
         n_clusters=actual_num_clusters,
         random_state=42,
-        size_min=min_cluster_size,
-        size_max=max_cluster_size
+        # size_min=min_cluster_size,
+        # size_max=max_cluster_size
     )
     labels = kmeans.fit_predict(X_combined)
     
@@ -389,13 +392,6 @@ def evaluate_clustering_kmeans_load_factor(
     try:
         silhouette = silhouette_score(X_combined, labels)
         dbi = davies_bouldin_score(X_combined, labels)
-        
-        # Approximate Mean Index Adequacy (MIA) 
-        # Note: This is a simplified approximation as the original MIA function is not provided
-        def mean_index_adequacy(X, labels):
-            n_clusters = len(np.unique(labels))
-            return np.mean([np.mean(np.abs(X[labels == c] - X[labels == c].mean(axis=0))) for c in range(n_clusters)])
-        
         mia = mean_index_adequacy(X_combined, labels)
         combined_index = (dbi * mia) / silhouette if silhouette != 0 else float('inf')
     except Exception as e:
@@ -444,7 +440,7 @@ def visualize_profile_classes(rlp_aggregated, profile_classes, num_clusters):
     """
     fig, ax = plt.subplots(figsize=(12, 6))
     ax.set_xlabel('Time of the Day', fontsize=12)
-    ax.set_ylabel('Load', fontsize=12)
+    ax.set_ylabel('Household Air Conditioner Electricity Consumption (Scaled)', fontsize=12)
     
     x_values = np.arange(48)
     colors = plt.cm.viridis(np.linspace(0, 1, num_clusters+1))
@@ -478,6 +474,53 @@ def visualize_profile_classes(rlp_aggregated, profile_classes, num_clusters):
     
     return fig, ax
 
+def visualize_profile_classes_with_no_zero(rlp_aggregated, profile_classes, num_clusters):
+    """
+    Visualize the profile classes from clustering results
+    
+    Parameters:
+    rlp_aggregated (pd.DataFrame): DataFrame with RLP data
+    profile_classes (pd.DataFrame): DataFrame with profile class assignments
+    num_clusters (int): Number of clusters
+    
+    Returns:
+    tuple: Figure and axis objects
+    """
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.set_xlabel('Time of the Day', fontsize=12)
+    ax.set_ylabel('Household Air Conditioner Electricity Consumption (Scaled)', fontsize=12)
+    
+    x_values = np.arange(48)
+    colors = plt.cm.viridis(np.linspace(0, 1, num_clusters+1))
+    legend_handles = []
+    
+    # Plot clusters
+    for i in range(0, num_clusters):
+        cluster_columns = profile_classes[profile_classes.Profile_Class == i + 1].index
+        cluster_data = rlp_aggregated[cluster_columns]
+        
+        # Plot individual observations
+        for col in cluster_data.columns:
+            ax.plot(x_values, cluster_data[col], color=colors[i], alpha=0.001)
+        
+        # Plot cluster mean
+        cluster_mean = cluster_data.mean(axis=1)
+        ax.plot(x_values, cluster_mean, color=colors[i], linewidth=2, 
+                label=f'Profile Class {i + 1}')
+        
+        legend_handles.append(mpatches.Patch(color=colors[i], 
+                                           label=f'Profile Class {i + 1}'))
+    
+    # Set x-axis properties
+    ax.set_xticks(range(0, 48, 2))
+    ax.set_xticklabels([f"{i // 2:02d}:00" for i in range(0, 48, 2)])
+    ax.tick_params(axis='x', labelrotation=45)
+    
+    ax.legend(handles=legend_handles, loc='upper right', fontsize=10)
+    ax.grid(True, which='both', linestyle=':', alpha=0.1)
+    plt.tight_layout()
+    
+    return fig, ax
 
 def compare_cluster_sizes(rlp_dict, cluster_type, min_clusters=5, max_clusters=15, save_plots=False, plot_dir=None, size_max=None):
     """
@@ -704,7 +747,8 @@ def merge_site_weather_data(profile_df, survey_df, weather_folder_path):
         survey_df[['site_ID', 'climate_zone', 'aircon_type_simplified', 'property_construction', 'weather_station_number', 'num_bedrooms', 'num_occupants']],
         on='site_ID', how='left'
     )
-    
+
+    # convert weather_station_number to an integer with no decimal    
     merged_df['weather_station_number'] = merged_df['weather_station_number'].astype('Int64')
     merged_df['date'] = pd.to_datetime(merged_df['date'])
     merged_df.to_csv('merged_df.csv')

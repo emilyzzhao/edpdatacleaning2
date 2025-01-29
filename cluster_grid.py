@@ -667,7 +667,7 @@ def visualize_cluster_grid(rlp_dict, cluster_sites_df, df, num_clusters, selecte
         squeeze=False  # Ensure axes is always 2D
     )
     
-    fig.suptitle('Cluster Profiles Across Dates', fontsize=16, y=0.98)
+    fig.suptitle('Cluster Profiles Across Five Dates', fontsize=16, y=0.98)
     
     # Create plots for each date-cluster combination
     for col, date in enumerate(unique_dates):

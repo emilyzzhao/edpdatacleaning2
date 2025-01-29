@@ -3,7 +3,7 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
 import numpy as np
-
+from sklearn.model_selection import train_test_split
 
 def create_combined_df_UNNORMALIZED(data_dir, date_range):
         
@@ -121,6 +121,122 @@ def create_combined_df(data_dir, date_range):
     return combined_df
 
 
+def create_train_test_combined_df(data_dir, date_range, train_size=0.8, random_state=42):
+    """
+    Create combined DataFrame from household CSVs with handling for missing dates and train/test splitting.
+    Handles gaps in data by filling intermediate dates with NaN values.
+    
+    Parameters:
+    data_dir (str): Directory containing household CSV files
+    date_range (pd.DatetimeIndex): Complete date range for reindexing
+    train_size (float): Proportion of households to use for training (default: 0.8)
+    random_state (int): Random seed for reproducibility (default: 42)
+    
+    Returns:
+    tuple: (training_df, testing_df)
+    """
+
+    
+    # Initialize an empty list to store household DataFrames
+    household_dfs = []
+    
+    for filename in os.listdir(data_dir):
+        if not filename.endswith("_profile.csv"):
+            continue
+        
+        file_path = os.path.join(data_dir, filename)
+        site_id = filename.split('_')[0]
+        
+        try:
+            # Load CSV and process timestamps
+            df = pd.read_csv(file_path, parse_dates=['TS'])
+            df['date'] = df['TS'].dt.date
+
+            # Filter for complete days (48 records per day)
+            complete_days = df.groupby('date').filter(lambda x: len(x) == 48)
+            if complete_days.empty:
+                continue
+            
+            # Reindex to fill gaps in the date range
+            full_df = pd.DataFrame(index=date_range)
+            daily_data = complete_days.set_index('TS')['Air_Conditioner_Load']
+            full_df[site_id] = np.nan
+            full_df.loc[daily_data.index, site_id] = daily_data
+            
+            # Scale valid values
+            valid_mask = full_df[site_id].notna()
+            if valid_mask.any():
+                scaler = MinMaxScaler(feature_range=(0, 1))
+                full_df.loc[valid_mask, site_id] = scaler.fit_transform(
+                    full_df.loc[valid_mask, site_id].values.reshape(-1, 1)
+                ).flatten()
+            
+            household_dfs.append(full_df[site_id])
+        
+        except Exception as e:
+            print(f"Error processing {filename}: {e}")
+            continue
+    
+    # Concatenate all household DataFrames along the columns (axis=1)
+    combined_df = pd.concat(household_dfs, axis=1)
+    
+    # Reset the index and rename the 'index' column to 'Timestamp'
+    combined_df = combined_df.reset_index()
+    combined_df = combined_df.rename(columns={'index': 'Timestamp'})
+    
+    # List of IDs to remove
+# List of IDs to remove
+    ids_to_remove = [
+        #'W0082', 
+        # 'W0120', 
+        # 'W0162', 
+        # 'W0175' , # just misses last time stamp 
+        # 'W0224' - no idea why,
+        # 'W0314', # ends on dec 29
+        'W0162', # doesn't hae air conditioner load
+        #'W0241', 
+        'W0243', # big gap in the middle around may 
+        'W0315', # big gap starting may 3
+        'W0324', # big gap starting feb 23
+        'W0330', # big gap starting may 25
+        'W0310', # ends in august 18
+        'W0335', # big gap starts may 20
+        "W0336", # always 0 for entire year
+        # "W0213",- no idea why
+        "S0261", # no idea why but looks weird 
+        #'S0233', #also looks fine
+        'W0192', # also looks fine? but allegedly missing data
+        # 'S0229', #looks fine
+        #'W0227', #also seems fine but very jagged
+        #'W0024', # also seems ok
+        'S0341', # just gross
+        #'S0338', # ends in november 
+        # 'W0060', # ends on december 2
+        # 'W0026' # ends in mid december
+    ]
+
+    # Drop specified columns
+    combined_df = combined_df.drop(columns=ids_to_remove, errors='ignore')
+    combined_df = combined_df.drop(columns=['Month', 'Season'], errors='ignore')
+    
+    # Get list of household columns (excluding Timestamp)
+    household_columns = [col for col in combined_df.columns if col != 'Timestamp']
+    
+    # Split households into training and testing sets
+    train_cols, test_cols = train_test_split(
+        household_columns,
+        train_size=train_size,
+        random_state=random_state
+    )
+    
+    # Create training and testing DataFrames
+    training_df = combined_df[['Timestamp'] + train_cols].copy()
+    testing_df = combined_df[['Timestamp'] + test_cols].copy()
+    
+    return training_df, testing_df
+
+
+
 def visualize_max_half_hourly_consumption(combined_df):
     # Visualize distribution of maximum half hourly consumption for the day for each site 
 
@@ -179,8 +295,12 @@ def create_low_consumption_dict(combined_df, min_cons):
 
     # Iterate through each site (column) in the DataFrame
     for site_id in combined_df_low_consumption.columns:
+
+        # filter out dates where all timestamps are NA
+        
         # Resample the site data by day and check number of values and max value for each day
         daily_stats = combined_df_low_consumption[site_id].resample('D').agg(['count', 'max'])
+        
         
         # Find days where we have a full day of readings (48) AND max value is <= min_cons
         low_consumption_days = daily_stats[

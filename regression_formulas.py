@@ -7,6 +7,97 @@ import pandas as pd
 import numpy as np
 
 
+import pandas as pd
+import os
+
+def match_temperatures_to_sites(survey_df, weather_folder_path):
+    """
+    Match max and min temperatures to site IDs for each day in 2023.
+    
+    Parameters:
+    -----------
+    survey_df : pandas DataFrame
+        DataFrame with site_IDs and weather_station_number
+    weather_folder_path : str
+        Path to folder containing weather station data files
+    
+    Returns:
+    --------
+    pandas DataFrame with temperature data added
+    """
+    # Ensure site_ID and weather_station_number are string type
+    survey_df['site_ID'] = survey_df['site_ID'].astype(str)
+    survey_df['weather_station_number'] = survey_df['weather_station_number'].astype(float)
+    
+    # Create full date range for 2023
+    date_range = pd.date_range(start='2023-01-01', end='2023-12-31', freq='D')
+    
+    # Prepare output DataFrame
+    weather_site_df = []
+    
+    # Process each unique weather station
+    for station_number in survey_df['weather_station_number'].unique():
+        if pd.notna(station_number):
+            # Construct file path
+            filename = f'daily_max_min_station_{int(station_number)}.csv'
+            filepath = os.path.join(weather_folder_path, filename)
+            
+            if os.path.exists(filepath):
+                # Read weather data
+                weather_df = pd.read_csv(filepath)
+                weather_df['date'] = pd.to_datetime(weather_df['date'])
+                weather_df = weather_df.drop(columns=['state','max_wet_bulb_temperature','min_wet_bulb_temperature'])
+                # Reindex to ensure full year coverage
+                weather_df = weather_df.set_index('date').reindex(date_range).rename_axis('date').reset_index()
+                
+    
+                # Interpolate missing temperature values
+                weather_df['max_air_temperature'] = weather_df['max_air_temperature'].interpolate(method='linear', limit_direction='both')
+                weather_df['min_air_temperature'] = weather_df['min_air_temperature'].interpolate(method='linear', limit_direction='both')
+                weather_df['station_number'] = weather_df['station_number'].interpolate(method='nearest')
+
+
+                # Filter sites forthis station
+                station_sites = survey_df[survey_df['weather_station_number'] == station_number]['site_ID']
+                
+                # Create rows for each site and date
+                for site_id in station_sites:
+                    site_df = weather_df.copy()
+                    site_df['site_ID'] = site_id
+                    weather_site_df.append(site_df)
+    
+    # Combine all results
+    final_df = pd.concat(weather_site_df, ignore_index=True)
+    # rename station_number column as weather_station number in final_df
+    final_df.rename(columns={'station_number':'weather_station_number'}, inplace=True)
+
+    print(final_df.head())
+    # Merge with original survey data to get additional site characteristics
+    final_df = pd.merge(
+        final_df, 
+        survey_df, 
+        on=['site_ID', 'weather_station_number'], 
+        how='left'
+    )
+    
+    # # Reorder and select columns
+    # column_order = [
+    #     'date', 'site_ID', 'weather_station_number', 
+    #     'max_air_temperature', 'min_air_temperature'
+    # ]
+    
+    # # Add any additional site characteristics from survey_df
+    # extra_columns = [col for col in survey_df.columns 
+    #                  if col not in ['site_ID', 'weather_station_number'] and col in final_df.columns]
+    # column_order.extend(extra_columns)
+    
+    # final_df = final_df[column_order]
+    
+    return final_df
+
+
+
+
 # Function for numeric descriptive statistics
 def get_numeric_stats(df, variables):
     stats_df = pd.DataFrame()
@@ -289,18 +380,22 @@ def add_probabilities_to_dataframe(regression_df, prob_list, profile_class_names
     - DataFrame with added probability columns
     """
     # Create a copy of the input DataFrame to avoid modifying the original
-    combined_df = regression_df.copy()
+    regression_df_copy = regression_df.copy()
     
+
     # Validate input lengths
-    if len(prob_list) != len(combined_df):
+    if len(prob_list) != len(regression_df_copy):
         raise ValueError(f"Length of probability list ({len(prob_list)}) "
-                         f"does not match DataFrame length ({len(combined_df)})")
-    
+                         f"does not match DataFrame length ({len(regression_df_copy)})")
+
     # If profile class names not provided, create generic names
     if profile_class_names is None:
         # Assuming probabilities are for 9 profile classes based on your description
-        profile_class_names = [f'Profile_Class_{i+1}' for i in range(len(prob_list[0]))]
-    
+        profile_class_names = [f'Profile_Class_{i}' for i in range(len(prob_list[0])+1)]
+         # add Profile Class 0 to profile_class_names
+        profile_class_names.insert(0, 'Profile_Class_0.0')
+    print(profile_class_names)
+    print(len(profile_class_names))
     # Validate profile class names
     if len(profile_class_names) != len(prob_list[0]):
         raise ValueError(f"Number of profile class names ({len(profile_class_names)}) "
@@ -310,6 +405,6 @@ def add_probabilities_to_dataframe(regression_df, prob_list, profile_class_names
     for i, profile_class in enumerate(profile_class_names):
         # Create a column with probabilities for this profile class
         prob_column_name = f'{profile_class}_Probability'
-        combined_df[prob_column_name] = [probs[i] for probs in prob_list]
+        regression_df_copy[prob_column_name] = [probs[i] for probs in prob_list]
     
-    return combined_df
+    return regression_df_copy
