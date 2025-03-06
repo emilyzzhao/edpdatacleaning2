@@ -37,7 +37,7 @@ from scipy.spatial.distance import euclidean
 from scipy.cluster.hierarchy import dendrogram, linkage,  single, complete, average, ward, fcluster
 from tslearn.metrics import dtw, cdist_dtw
 from k_means_constrained import KMeansConstrained
-
+from sklearn_extra.cluster import KMedoids
 #Average Squared-Loss Mutual Information Error (SMI),
 #Violation rate of Root Squared Error (VRSE)
 #Modified Dunn Index (MDI) 
@@ -122,7 +122,7 @@ def evaluate_clustering_kmeans(rlp_dict, num_clusters):
     mia = mean_index_adequacy(X, cluster_labels)
     
     # Calculate combined index
-    combined_index = (dbi * mia) / silhouette
+    combined_index = (dbi * mia) #/ silhouette
     
     # Create Profile Classes DataFrame
     Profile_Classes = pd.DataFrame(index=rlp_aggregated.columns)
@@ -282,25 +282,45 @@ def calculate_load_factor(profile):
     avg_load = np.mean(profile)
     return avg_load / peak_load if peak_load != 0 else 0
 
-# def calculate_time_series_features(profile):
-#     """Calculate relevant time series features for load profiles."""
-#     # Basic statistics
-#     peak_load = np.max(profile)
-#     avg_load = np.mean(profile)
-#     min_load = np.min(profile)
+def calculate_time_series_features_extensive(profile):
+    """Calculate relevant time series features for load profiles."""
+    # Basic statistics
+    peak_load = np.max(profile)
+    avg_load = np.mean(profile)
+    min_load = np.min(profile)
+    std_load = np.std(profile)
     
-#     features = {
-#         'load_factor': avg_load / peak_load if peak_load != 0 else 0#,
-#         # 'peak_to_average': peak_load / avg_load if avg_load != 0 else 0,
-#         # 'valley_to_peak': min_load / peak_load if peak_load != 0 else 0,
-#         # 'coefficient_variation': np.std(profile) / avg_load if avg_load != 0 else 0,
-#         # 'ramp_rate': np.mean(np.abs(np.diff(profile))),
-#         #'peak_hour': np.argmax(profile)#,
-#         # 'load_factor_morning': np.mean(profile[12:24]) / peak_load if peak_load != 0 else 0,
-#         # 'load_factor_evening': np.mean(profile[30:42]) / peak_load if peak_load != 0 else 0,
-#     }
+    # Convert the half-hourly indices to corresponding hour periods
+    # For half-hourly data, indices 0-47 represent 00:00-00:30, 00:30-01:00, ..., 23:30-00:00
     
-#     return features
+    # Baseload (12am-5am): indices 2-9 (00:00-05:00)
+    baseload_indices = np.arange(0, 10)
+    baseload = np.mean(profile[baseload_indices])
+    
+    # Morning load (6am-10am): indices 12-19 (06:00-10:00)
+    morning_indices = np.arange(12, 20)
+    morning_load = np.mean(profile[morning_indices])
+
+    # Daytime load (10am-4pm): indices 20-31 (10:00-16:00)
+    daytime_indices = np.arange(20, 32)
+    daytime_load = np.mean(profile[daytime_indices])
+    
+    # Evening load (4pm-10pm): indices 32-43 (16:00-22:00)
+    evening_indices = np.arange(32, 44)
+    evening_load = np.mean(profile[evening_indices])
+    
+    features = {
+        'load_factor': avg_load / peak_load if peak_load != 0 else 0,
+        'peak_hour': np.argmax(profile) / 2,  # Convert to actual hour (0-23.5)
+        'peak_value': peak_load,
+        'ramp_rate': np.mean(np.abs(np.diff(profile))),
+        'baseload': baseload,
+        'morning_load': morning_load,
+        'daytime_load': daytime_load,
+        'evening_load': evening_load,
+    }
+    
+    return features
 
 def calculate_time_series_features(profile):
     """Calculate relevant time series features for load profiles."""

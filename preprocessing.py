@@ -22,7 +22,7 @@ def create_combined_df_UNNORMALIZED(data_dir, date_range):
             df['TS'] = pd.to_datetime(df['TS'])
             
             # Set 'TS' as the index and extract 'Air_Conditioner_Load'
-            df = df.set_index('TS')['Air_Conditioner_Load']
+            df = df.set_index('TS')['air_conditioning_load']
             
             # Extract site ID from the filename (assuming the filename format is 'siteid_profile.csv')
             site_id = filename.split('_')[0]
@@ -47,17 +47,17 @@ def create_combined_df_UNNORMALIZED(data_dir, date_range):
     combined_df = combined_df.reset_index()
     combined_df = combined_df.rename(columns={'index': 'Timestamp'})
 
-    # List of IDs to remove
-    ids_to_remove = [
-        #'S0024', 'S0159', 'S0318', 'S0444', 'S0470',
-        'W0082', 'W0120', 'W0162', 'W0175', 'W0224',
-        'W0241', 'W0243', 'W0315', 'W0324', 'W0330', 'W0310', 'W0335', "W0336",
-        "W0213", "S0261", 'S0233', 'W0192', 'S0229', 'W0227', 'W0024', 'S0341', 'S0338', 'W0060', 'W0026'#, 'W0314'
-    ]
+    # # List of IDs to remove
+    # ids_to_remove = [
+    #     #'S0024', 'S0159', 'S0318', 'S0444', 'S0470',
+    #     'W0082', 'W0120', 'W0162', 'W0175', 'W0224',
+    #     'W0241', 'W0243', 'W0315', 'W0324', 'W0330', 'W0310', 'W0335', "W0336",
+    #     "W0213", "S0261", 'S0233', 'W0192', 'S0229', 'W0227', 'W0024', 'S0341', 'S0338', 'W0060', 'W0026'#, 'W0314'
+    # ]
 
     # Drop columns based on the list of IDs to remove
-    combined_df = combined_df.drop(columns=ids_to_remove, errors='ignore')
-    combined_df = combined_df.drop(columns=['Month', 'Season'], errors='ignore')
+    #combined_df = combined_df.drop(columns=ids_to_remove, errors='ignore')
+    #combined_df = combined_df.drop(columns=['Month', 'Season'], errors='ignore')
 
     return combined_df
 
@@ -159,7 +159,7 @@ def create_train_test_combined_df(data_dir, date_range, train_size=0.8, random_s
             
             # Reindex to fill gaps in the date range
             full_df = pd.DataFrame(index=date_range)
-            daily_data = complete_days.set_index('TS')['Air_Conditioner_Load']
+            daily_data = complete_days.set_index('TS')['air_conditioning_load']
             full_df[site_id] = np.nan
             full_df.loc[daily_data.index, site_id] = daily_data
             
@@ -186,38 +186,38 @@ def create_train_test_combined_df(data_dir, date_range, train_size=0.8, random_s
     
     # List of IDs to remove
 # List of IDs to remove
-    ids_to_remove = [
-        #'W0082', 
-        # 'W0120', 
-        # 'W0162', 
-        # 'W0175' , # just misses last time stamp 
-        # 'W0224' - no idea why,
-        # 'W0314', # ends on dec 29
-        'W0162', # doesn't hae air conditioner load
-        #'W0241', 
-        'W0243', # big gap in the middle around may 
-        'W0315', # big gap starting may 3
-        'W0324', # big gap starting feb 23
-        'W0330', # big gap starting may 25
-        'W0310', # ends in august 18
-        'W0335', # big gap starts may 20
-        "W0336", # always 0 for entire year
-        # "W0213",- no idea why
-        "S0261", # no idea why but looks weird 
-        #'S0233', #also looks fine
-        'W0192', # also looks fine? but allegedly missing data
-        # 'S0229', #looks fine
-        #'W0227', #also seems fine but very jagged
-        #'W0024', # also seems ok
-        'S0341', # just gross
-        #'S0338', # ends in november 
-        # 'W0060', # ends on december 2
-        # 'W0026' # ends in mid december
-    ]
+    ids_to_remove = []
+    # ids_to_remove = [
+    #     #'W0082', 
+    #     # 'W0120', 
+    #     # 'W0162', 
+    #     # 'W0175' , # just misses last time stamp 
+    #     # 'W0224' - no idea why,
+    #     # 'W0314', # ends on dec 29
+    #     'W0162', # doesn't hae air conditioner load
+    #     #'W0241', 
+    #     'W0243', # big gap in the middle around may 
+    #     'W0315', # big gap starting may 3
+    #     'W0324', # big gap starting feb 23
+    #     'W0330', # big gap starting may 25
+    #     'W0310', # ends in august 18
+    #     'W0335', # big gap starts may 20
+    #     "W0336", # always 0 for entire year
+    #     # "W0213",- no idea why
+    #     "S0261", # no idea why but looks weird 
+    #     #'S0233', #also looks fine
+    #     'W0192', # also looks fine? but allegedly missing data
+    #     # 'S0229', #looks fine
+    #     #'W0227', #also seems fine but very jagged
+    #     #'W0024', # also seems ok
+    #     'S0341', # just gross
+    #     #'S0338', # ends in november 
+    #     # 'W0060', # ends on december 2
+    #     # 'W0026' # ends in mid december
+    # ]
 
     # Drop specified columns
     combined_df = combined_df.drop(columns=ids_to_remove, errors='ignore')
-    combined_df = combined_df.drop(columns=['Month', 'Season'], errors='ignore')
     
     # Get list of household columns (excluding Timestamp)
     household_columns = [col for col in combined_df.columns if col != 'Timestamp']
