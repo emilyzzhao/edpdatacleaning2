@@ -313,12 +313,24 @@ def calculate_time_series_features_extensive(profile):
         'load_factor': avg_load / peak_load if peak_load != 0 else 0,
         'peak_hour': np.argmax(profile) / 2,  # Convert to actual hour (0-23.5)
         'peak_value': peak_load,
+        'peak_to_valley_ratio': (peak_load - min_load) / peak_load if peak_load != 0 else 0, # Peak-to-valley ratio (volatility measure)
         'ramp_rate': np.mean(np.abs(np.diff(profile))),
         'baseload': baseload,
         'morning_load': morning_load,
         'daytime_load': daytime_load,
         'evening_load': evening_load,
     }
+    # # Calculate peak loads for different periods
+    # morning_peak_load = np.max(profile[morning_indices])
+    # daytime_peak_load = np.max(profile[daytime_indices])
+    # evening_peak_load = np.max(profile[evening_indices])
+    
+    # # Add peak loads to features dictionary
+    # features.update({
+    #     'morning_peak_load': morning_peak_load,
+    #     'daytime_peak_load': daytime_peak_load,
+    #     'evening_peak_load': evening_peak_load
+    # })
     
     return features
 
