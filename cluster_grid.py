@@ -631,6 +631,137 @@ def aggregate_rlps(rlp_dict):
     rlp_df.index = pd.date_range(start='00:00', end='23:30', freq='30T').strftime('%H:%M')
     return rlp_df
 
+
+def visualize_cluster_grid_sites(rlp_dict, cluster_days_df, df, num_clusters, selected_sites):
+    """
+    Visualize clusters in a grid layout with sites as columns and clusters as rows.
+    
+    Parameters:
+    -----------
+    rlp_dict : dict
+        Dictionary containing representative load profiles for each cluster
+    cluster_days_df : pandas.DataFrame
+        DataFrame containing cluster assignments for each day
+    df : pandas.DataFrame
+        Original time series data with 'Timestamp' column
+    num_clusters : int
+        Number of clusters to visualize
+    selected_sites : list
+        List of 5 sites to visualize
+    """
+    # Validate the number of sites
+    if len(selected_sites) != 5:
+        raise ValueError("Exactly 5 sites must be provided in selected_sites")
+    
+    # Set up the font to Calibri
+    plt.rcParams['font.family'] = 'Calibri'
+    
+    # Get the rocket colormap
+    rocket_cmap = plt.cm.get_cmap('rocket')
+    
+    # Set up the grid layout
+    fig, axes = plt.subplots(
+        num_clusters, 
+        len(selected_sites), 
+        figsize=(4 * len(selected_sites), 3 * num_clusters),
+        squeeze=False  # Ensure axes is always 2D
+    )
+    
+    fig.suptitle('Cluster Profiles Across Five Sites', fontsize=16, y=0.98, fontfamily='Calibri')
+    
+    # Create plots for each site-cluster combination
+    for col, site_id in enumerate(selected_sites):
+        # Generate colors for this site from the rocket palette
+        site_color = rocket_cmap(0.2 + 0.8 * col / len(selected_sites))
+        for cluster in range(num_clusters):
+            cluster_key = f'{site_id}_C{cluster+1}'
+            ax = axes[cluster, col]
+            
+            # Get days for current cluster
+            days = cluster_days_df[
+                cluster_days_df['Site_Cluster'] == cluster_key
+            ]['date'].dropna().tolist()
+            
+            if days:
+                # Ensure timestamps are datetime objects
+                days = [pd.Timestamp(day) if not isinstance(day, pd.Timestamp) else day for day in days]
+                
+                # Get daily profiles for this site on the days in this cluster
+                site_data = df[df['Timestamp'].dt.date.isin([day.date() for day in days])]
+                
+                # Create a DataFrame where each row is a daily profile
+                daily_profiles = {}
+                for day in days:
+                    day_data = site_data[site_data['Timestamp'].dt.date == day.date()]
+                    if not day_data.empty:
+                        # Store the profile for this day
+                        timestamps = day_data['Timestamp']
+                        values = day_data[site_id]
+                        daily_profiles[day.date()] = values.values
+                
+                # Convert to DataFrame
+                profiles_df = pd.DataFrame.from_dict(daily_profiles, orient='index')
+                
+                if not profiles_df.empty:
+                    # Get the timestamps for x-axis (assuming same timestamps for all days)
+                    x_values = timestamps
+                    
+                    # Plot individual time series with lighter version of the site color
+                    for day, profile in profiles_df.iterrows():
+                        ax.plot(
+                            x_values,
+                            profile,
+                            alpha=0.4,
+                            color=site_color,
+                            linewidth=0.5
+                        )
+                    
+                    # Plot RLP (centroid) with a darker version of site color
+                    if cluster_key in rlp_dict:
+                        rlp = rlp_dict[cluster_key]
+                        # Use a deeper color from rocket palette for the RLP
+                        rlp_color = rocket_cmap(0.7)
+                        ax.plot(
+                            x_values,
+                            rlp,
+                            color=rlp_color,
+                            linewidth=2,
+                            label='Representative Load Profile'
+                        )
+            
+            # Formatting
+            ax.grid(True, which='both', linestyle=':', alpha=0.3)
+            
+            # set y-axis as 0-1 for all plots
+            ax.set_ylim(0, 1)
+            
+            # Set labels only for leftmost and bottom plots
+            if col == 0:
+                ax.set_ylabel(f'Cluster {cluster+1}', fontfamily='Calibri', fontsize=10)
+            if cluster == num_clusters - 1:
+                ax.set_xticklabels(
+                    [t.strftime('%H:%M') for t in x_values],
+                    rotation=45,
+                    ha='right',
+                    fontfamily='Calibri'
+                )
+            else:
+                ax.set_xticklabels([])
+            
+            # Set title for top row only
+            if cluster == 0:
+                ax.set_title(f'Site {site_id}', fontfamily='Calibri', fontsize=12)
+            
+            # Add legend to first plot only
+            if col == 0 and cluster == 0:
+                legend = ax.legend(prop={'family': 'Calibri', 'size': 9})
+    
+    # Adjust layout
+    plt.tight_layout(rect=[0, 0.02, 1, 0.96])
+    return fig, axes
+
+
+
 def visualize_cluster_grid(rlp_dict, cluster_sites_df, df, num_clusters, selected_dates):
     """
     Visualize clusters in a grid layout with dates as columns and clusters as rows.
@@ -1205,54 +1336,39 @@ def process_multiple_days(df, start_date, end_date, num_clusters, low_consumptio
 import pandas as pd
 import numpy as np
 
-def analyze_yearly_cluster_sizes(cluster_sites_df, start_date='2023-01-01', end_date='2023-12-31'):
+def analyze_cluster_sizes_by_site(cluster_sites_df, site_ids):
     """
-    Analyze cluster sizes for all dates in a given year.
-    
+    Analyze cluster sizes for each site.
+
     Parameters:
     -----------
     cluster_sites_df : pandas.DataFrame
-        DataFrame with 'Date_Cluster' column and 'site_ID' column
-    start_date : str, optional
-        Start date of the analysis (default: '2023-01-01')
-    end_date : str, optional
-        End date of the analysis (default: '2023-12-31')
-    
+        DataFrame with 'Site_Cluster' and 'site_id' columns.
+
     Returns:
     --------
     dict
-        A dictionary with yearly cluster size statistics
+        A dictionary with cluster size statistics for each site.
     """
-    # Convert start and end dates to datetime
-    start_date = pd.to_datetime(start_date)
-    end_date = pd.to_datetime(end_date)
     
-    # Generate all dates in the year
-    all_dates = pd.date_range(start=start_date, end=end_date)
-    
-    # Create a dictionary to store daily cluster size analysis
-    daily_cluster_sizes = {}
-    
-    for date in all_dates:
-        # Convert the date to the format in the DataFrame (YYYY-MM-DD)
-        date_str = date.strftime('%Y-%m-%d')
+    # Create a dictionary to store cluster size analysis per site
+    site_cluster_sizes = {}
+
+    # Iterate through unique site IDs
+    for site_id in site_ids:
+        # Filter for the specific site
         
-        # Filter for rows matching the specific date
-        daily_clusters = cluster_sites_df[cluster_sites_df['Date_Cluster'].str.startswith(date_str)]
-        
-        # Skip if no clusters for this date
-        if daily_clusters.empty:
-            continue
-        
+        site_data = cluster_sites_df[cluster_sites_df['Site_Cluster'].str.startswith(f"{site_id}_")]
+
         # Count the number of sites in each cluster
-        cluster_counts = daily_clusters['Date_Cluster'].value_counts()
-        
+        cluster_counts = site_data['Site_Cluster'].value_counts()
+
         # Count clusters with 1 or 2 sites
         small_clusters_1 = sum(cluster_counts == 1)
         small_clusters_2 = sum(cluster_counts == 2)
-        
-        # Store daily analysis
-        daily_cluster_sizes[date] = {
+
+        # Store site-specific cluster size analysis
+        site_cluster_sizes[site_id] = {
             'min_cluster_size': cluster_counts.min(),
             'max_cluster_size': cluster_counts.max(),
             'mean_cluster_size': cluster_counts.mean(),
@@ -1260,20 +1376,17 @@ def analyze_yearly_cluster_sizes(cluster_sites_df, start_date='2023-01-01', end_
             'clusters_with_2_sites': small_clusters_2,
             'total_clusters': len(cluster_counts)
         }
-    
+
     # Compute summary statistics
     summary_stats = {
-        'average_min_cluster_size': np.mean([day['min_cluster_size'] for day in daily_cluster_sizes.values()]),
-        'average_max_cluster_size': np.mean([day['max_cluster_size'] for day in daily_cluster_sizes.values()]),
-        'total_clusters_with_1_sites': sum([day['clusters_with_1_site'] for day in daily_cluster_sizes.values()]),
-        'total_clusters_with_2_sites': sum([day['clusters_with_2_sites'] for day in daily_cluster_sizes.values()]),
-        'days_analyzed': len(daily_cluster_sizes),
-        'total_days_in_year': len(all_dates)
+        'average_min_cluster_size': np.mean([site['min_cluster_size'] for site in site_cluster_sizes.values()]),
+        'average_max_cluster_size': np.mean([site['max_cluster_size'] for site in site_cluster_sizes.values()]),
+        'total_clusters_with_1_site': sum([site['clusters_with_1_site'] for site in site_cluster_sizes.values()]),
+        'total_clusters_with_2_sites': sum([site['clusters_with_2_sites'] for site in site_cluster_sizes.values()]),
+        'total_sites_analyzed': len(site_cluster_sizes)
     }
-    
+
     return {
-        'daily_cluster_sizes': daily_cluster_sizes,
+        'site_cluster_sizes': site_cluster_sizes,
         'summary_statistics': summary_stats
     }
-
-

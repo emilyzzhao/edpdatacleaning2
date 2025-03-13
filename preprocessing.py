@@ -78,7 +78,7 @@ def create_combined_df(data_dir, date_range):
             df['TS'] = pd.to_datetime(df['TS'])
             
             # Set 'TS' as the index and extract 'Air_Conditioner_Load'
-            df = df.set_index('TS')['Air_Conditioner_Load']
+            df = df.set_index('TS')['air_conditioning_load']
             
             # Extract site ID from the filename (assuming the filename format is 'siteid_profile.csv')
             site_id = filename.split('_')[0]
@@ -106,17 +106,17 @@ def create_combined_df(data_dir, date_range):
     combined_df = combined_df.reset_index()
     combined_df = combined_df.rename(columns={'index': 'Timestamp'})
 
-    # List of IDs to remove
-    ids_to_remove = [
-        #'S0024', 'S0159', 'S0318', 'S0444', 'S0470',
-        'W0082', 'W0120', 'W0162', 'W0175', 'W0224',
-        'W0241', 'W0243', 'W0315', 'W0324', 'W0330', 'W0310', 'W0335', "W0336",
-        "W0213", "S0261", 'S0233', 'W0192', 'S0229', 'W0227', 'W0024', 'S0341', 'S0338', 'W0060', 'W0026'#, 'W0314'
-    ]
+    # # List of IDs to remove
+    # ids_to_remove = [
+    #     #'S0024', 'S0159', 'S0318', 'S0444', 'S0470',
+    #     'W0082', 'W0120', 'W0162', 'W0175', 'W0224',
+    #     'W0241', 'W0243', 'W0315', 'W0324', 'W0330', 'W0310', 'W0335', "W0336",
+    #     "W0213", "S0261", 'S0233', 'W0192', 'S0229', 'W0227', 'W0024', 'S0341', 'S0338', 'W0060', 'W0026'#, 'W0314'
+    # ]
 
-    # Drop columns based on the list of IDs to remove
-    combined_df = combined_df.drop(columns=ids_to_remove, errors='ignore')
-    combined_df = combined_df.drop(columns=['Month', 'Season'], errors='ignore')
+    # # Drop columns based on the list of IDs to remove
+    # combined_df = combined_df.drop(columns=ids_to_remove, errors='ignore')
+    # combined_df = combined_df.drop(columns=['Month', 'Season'], errors='ignore')
 
     return combined_df
 

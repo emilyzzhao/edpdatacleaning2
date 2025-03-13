@@ -88,7 +88,7 @@ def aggregate_rlps(rlp_dict):
         return rlp_df 
     
 
-def evaluate_clustering_kmeans(rlp_dict, num_clusters):
+def evaluate_clustering_kmeans(rlp_aggregated, num_clusters):
     """
     Perform time series clustering and calculate evaluation metrics
     
@@ -100,19 +100,14 @@ def evaluate_clustering_kmeans(rlp_dict, num_clusters):
     dict: Dictionary containing clustering metrics and labels
     """
     # visualize profile classes (mean RLP)
-    
-    rlp_aggregated = aggregate_rlps(rlp_dict)
-    df = rlp_aggregated
 
     # Exclude columns that end with "C0"
-    non_c0_columns = [col for col in df.columns if not col.endswith("C0")]
-    c0_columns = [col for col in df.columns if col.endswith("C0")]
+    non_c0_columns = [col for col in rlp_aggregated.columns if not col.endswith("C0")]
+    c0_columns = [col for col in rlp_aggregated.columns if col.endswith("C0")]
 
     # Ensure we're only fitting columns with valid data (i.e., drop columns with missing values if necessary)
     kmeans = TimeSeriesKMeans(n_clusters=num_clusters, random_state= 36)
-    X = df[non_c0_columns].T
-
-    # Transpose the data (sites as columns and half-hour periods as rows)
+    X = rlp_aggregated[non_c0_columns].T
     kmeans.fit(X)
     cluster_labels = kmeans.labels_
     
@@ -122,7 +117,7 @@ def evaluate_clustering_kmeans(rlp_dict, num_clusters):
     mia = mean_index_adequacy(X, cluster_labels)
     
     # Calculate combined index
-    combined_index = (dbi * mia) #/ silhouette
+    combined_index = (dbi * mia) / silhouette if silhouette > 0 else float('inf')
     
     # Create Profile Classes DataFrame
     Profile_Classes = pd.DataFrame(index=rlp_aggregated.columns)
@@ -138,19 +133,17 @@ def evaluate_clustering_kmeans(rlp_dict, num_clusters):
     }
 
 
-def evaluate_clustering_kmeans_constrained(rlp_dict, num_clusters, size_max):
+def evaluate_clustering_kmeans_constrained(rlp_aggregated, num_clusters, size_max):
     """
     Perform time series clustering and calculate evaluation metrics
     """
-    rlp_aggregated = aggregate_rlps(rlp_dict)
-    df = rlp_aggregated
 
     # Exclude columns that end with "C0"
-    non_c0_columns = [col for col in df.columns if not col.endswith("C0")]
-    c0_columns = [col for col in df.columns if col.endswith("C0")]
+    non_c0_columns = [col for col in rlp_aggregated.columns if not col.endswith("C0")]
+    c0_columns = [col for col in rlp_aggregated.columns if col.endswith("C0")]
 
     kmeans = KMeansConstrained(n_clusters=num_clusters, random_state=36, size_max=size_max)
-    X = df[non_c0_columns].T
+    X = rlp_aggregated[non_c0_columns].T
 
     kmeans.fit(X)
     cluster_labels = kmeans.labels_
@@ -175,7 +168,7 @@ def evaluate_clustering_kmeans_constrained(rlp_dict, num_clusters, size_max):
         'profile_classes': Profile_Classes
     }
 
-def evaluate_clustering_dtw(rlp_dict, num_clusters):
+def evaluate_clustering_dtw(rlp_aggregated, num_clusters):
     """
     Perform time series clustering and calculate evaluation metrics
     
@@ -187,17 +180,15 @@ def evaluate_clustering_dtw(rlp_dict, num_clusters):
     dict: Dictionary containing clustering metrics and labels
     """
     # visualize profile classes (mean RLP)
-    
-    rlp_aggregated = aggregate_rlps(rlp_dict)
-    df = rlp_aggregated
+
 
     # Exclude columns that end with "C0"
-    non_c0_columns = [col for col in df.columns if not col.endswith("C0")]
-    c0_columns = [col for col in df.columns if col.endswith("C0")]
+    non_c0_columns = [col for col in rlp_aggregated.columns if not col.endswith("C0")]
+    c0_columns = [col for col in rlp_aggregated.columns if col.endswith("C0")]
 
     # Ensure we're only fitting columns with valid data (i.e., drop columns with missing values if necessary)
     kmeans = TimeSeriesKMeans(n_clusters=num_clusters, metric = 'dtw')
-    X = df[non_c0_columns].T
+    X = rlp_aggregated[non_c0_columns].T
 
     # Transpose the data (sites as columns and half-hour periods as rows)
     kmeans.fit(X)
@@ -225,7 +216,7 @@ def evaluate_clustering_dtw(rlp_dict, num_clusters):
     }
 
 
-def evaluate_clustering_kmedoids(rlp_dict, num_clusters):
+def evaluate_clustering_kmedoids(rlp_aggregated, num_clusters):
     """
     Perform time series clustering and calculate evaluation metrics
     
@@ -237,17 +228,15 @@ def evaluate_clustering_kmedoids(rlp_dict, num_clusters):
     dict: Dictionary containing clustering metrics and labels
     """
     # visualize profile classes (mean RLP)
-    
-    rlp_aggregated = aggregate_rlps(rlp_dict)
-    df = rlp_aggregated
+
 
     # Exclude columns that end with "C0"
-    non_c0_columns = [col for col in df.columns if not col.endswith("C0")]
-    c0_columns = [col for col in df.columns if col.endswith("C0")]
+    non_c0_columns = [col for col in rlp_aggregated.columns if not col.endswith("C0")]
+    c0_columns = [col for col in rlp_aggregated.columns if col.endswith("C0")]
 
     # Ensure we're only fitting columns with valid data (i.e., drop columns with missing values if necessary)
     kmeans = KMedoids(n_clusters=num_clusters, metric = "euclidean")
-    X = df[non_c0_columns].T
+    X = rlp_aggregated[non_c0_columns].T
 
     # Transpose the data (sites as columns and half-hour periods as rows)
     kmeans.fit(X)
@@ -554,7 +543,7 @@ def visualize_profile_classes_with_no_zero(rlp_aggregated, profile_classes, num_
     
     return fig, ax
 
-def compare_cluster_sizes(rlp_dict, cluster_type, min_clusters=5, max_clusters=15, save_plots=False, plot_dir=None, size_max=None):
+def compare_cluster_sizes(rlp_aggregated, cluster_type, min_clusters=5, max_clusters=15, save_plots=False, plot_dir=None, size_max=None):
     """
     Compare different numbers of clusters and their evaluation metrics.
     
@@ -581,15 +570,15 @@ def compare_cluster_sizes(rlp_dict, cluster_type, min_clusters=5, max_clusters=1
         try:
 
             if cluster_type== "kmeans":
-                results = evaluate_clustering_kmeans(rlp_dict, n_clusters)
+                results = evaluate_clustering_kmeans(rlp_aggregated, n_clusters)
             elif cluster_type== "dtw":
-                results = evaluate_clustering_dtw(rlp_dict, n_clusters)
+                results = evaluate_clustering_dtw(rlp_aggregated, n_clusters)
             elif cluster_type == "kmeans_constrained":
                 results = evaluate_clustering_kmeans_constrained(rlp_dict, n_clusters, size_max)
             elif cluster_type == "kmedoids":
-                results = evaluate_clustering_kmedoids(rlp_dict, n_clusters)
+                results = evaluate_clustering_kmedoids(rlp_aggregated, n_clusters)
             elif cluster_type == "kmeans_load_factor":
-                 results = evaluate_clustering_kmeans_load_factor(rlp_dict, n_clusters)
+                 results = evaluate_clustering_kmeans_load_factor(rlp_aggregated, n_clusters)
 
             
             cluster_results[n_clusters] = {
