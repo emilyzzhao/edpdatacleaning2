@@ -38,6 +38,7 @@ from scipy.cluster.hierarchy import dendrogram, linkage,  single, complete, aver
 from tslearn.metrics import dtw, cdist_dtw
 from k_means_constrained import KMeansConstrained
 from sklearn_extra.cluster import KMedoids
+import somoclu
 #Average Squared-Loss Mutual Information Error (SMI),
 #Violation rate of Root Squared Error (VRSE)
 #Modified Dunn Index (MDI) 
@@ -89,24 +90,14 @@ def aggregate_rlps(rlp_dict):
     
 
 def evaluate_clustering_kmeans(rlp_aggregated, num_clusters):
-    """
-    Perform time series clustering and calculate evaluation metrics
-    
-    Parameters:
-    rlp_dict (pd.DataFrame): DataFrame with RLP data
-    num_clusters (int): Number of clusters to create
-    
-    Returns:
-    dict: Dictionary containing clustering metrics and labels
-    """
-    # visualize profile classes (mean RLP)
+
 
     # Exclude columns that end with "C0"
     non_c0_columns = [col for col in rlp_aggregated.columns if not col.endswith("C0")]
     c0_columns = [col for col in rlp_aggregated.columns if col.endswith("C0")]
 
     # Ensure we're only fitting columns with valid data (i.e., drop columns with missing values if necessary)
-    kmeans = TimeSeriesKMeans(n_clusters=num_clusters, random_state= 36)
+    kmeans = TimeSeriesKMeans(n_clusters=num_clusters, random_state= 111)
     X = rlp_aggregated[non_c0_columns].T
     kmeans.fit(X)
     cluster_labels = kmeans.labels_
@@ -248,7 +239,7 @@ def evaluate_clustering_kmedoids(rlp_aggregated, num_clusters):
     mia = mean_index_adequacy(X, cluster_labels)
     
     # Calculate combined index
-    combined_index = (dbi * mia) / silhouette
+    combined_index = (dbi * mia) / silhouette if silhouette > 0 else float('inf')
     
     # Create Profile Classes DataFrame
     Profile_Classes = pd.DataFrame(index=rlp_aggregated.columns)
@@ -447,6 +438,244 @@ def evaluate_clustering_kmeans_load_factor(
         'profile_classes': Profile_Classes
     }
 
+
+        
+
+def evaluate_clustering_som(rlp_aggregated, num_clusters):
+    """
+    Evaluate clustering using a hybrid SOM + K-means approach.
+    SOM organizes the data points into neurons, then if necessary, K-means is applied
+    to group similar neurons together to achieve the desired cluster count range.
+    
+    Parameters:
+    -----------
+    rlp_aggregated : pandas.DataFrame
+        DataFrame containing the time series data to be clustered
+    num_clusters : int
+    
+    Returns:
+    --------
+    list
+        List of dictionaries, each containing the best result for a specific number of clusters.
+        Each dictionary includes:
+        - num_clusters: Number of clusters
+        - silhouette_score: Silhouette coefficient
+        - davies_bouldin_index: Davies-Bouldin index
+        - mean_index_adequacy: Mean Index Adequacy
+        - combined_index: Combined performance index
+        - profile_classes: DataFrame mapping each profile to its cluster
+        - dimensions: Tuple (width, height) of the SOM dimensions used
+    """
+
+    c0_columns = [col for col in rlp_aggregated.columns if col.endswith("_C0")]
+    
+    # If no _C0 columns found, check if we need to exclude any columns
+    if not c0_columns:
+        print("No columns ending with '_C0' found. Using all columns for clustering.")
+        # Use all columns in this case
+        clustering_columns = rlp_aggregated.columns.tolist()
+        excluded_columns = []
+    else:
+        # If _C0 columns exist, exclude them from clustering
+        clustering_columns = [col for col in rlp_aggregated.columns if not col.endswith("_C0")]
+        excluded_columns = c0_columns
+        print(f"Found {len(excluded_columns)} columns ending with '_C0' that will be excluded.")
+    
+    print(f"Using {len(clustering_columns)} columns for clustering.")
+    
+    # Prepare data for clustering
+    X = rlp_aggregated[clustering_columns].T
+    print(f"Data shape after transposing: {X.shape}")
+    sample_count = X.shape[0]
+    
+    # Ensure data is float32 to avoid warnings
+    data = X.values.astype(np.float32)
+    
+    max_dim = max(2, int(np.sqrt(sample_count/12)))
+    som_dim = min(max_dim, num_clusters)
+    
+    print(f"Using SOM dimension: {som_dim}x{som_dim}")
+    
+    som = somoclu.Somoclu(som_dim, som_dim, compactsupport=False, maptype='planar')
+    som.train(data)
+    
+    # Get BMUs for each data point
+    bmus = som.bmus
+    
+    # Calculate natural clusters from SOM
+    m = np.arange(0, som_dim*som_dim, 1).reshape(som_dim, som_dim)
+    labels = np.array([m[bmus[i][1], bmus[i][0]] for i in range(len(bmus))])
+    print(len(bmus))
+    # Count unique natural clusters
+    natural_clusters = len(np.unique(labels))
+    print(f"Natural clusters found by SOM: {natural_clusters}")
+
+    
+    if natural_clusters != num_clusters:
+        print(f"Applying KMeans to get exactly {num_clusters} clusters")
+        clusterer = KMeans(n_clusters=num_clusters, random_state=42)
+        som.cluster(algorithm=clusterer)
+            
+        # Get cluster labels from SOM cluster results
+        m = som.clusters
+        labels = np.array([m[bmus[i][1], bmus[i][0]] for i in range(len(bmus))])
+    
+    if len(np.unique(labels)) > 1:
+        silhouette = silhouette_score(data, labels)
+        dbi = davies_bouldin_score(data, labels)
+        mia = mean_index_adequacy(data, labels)
+        combined_index = (dbi * mia) / silhouette if silhouette > 0 else float('inf')
+        dimensions = (som_dim, som_dim)
+    else:
+        print("Warning: Only one cluster found, metrics will be default values")
+        silhouette = 0
+        dbi = float('inf')
+        mia = float('inf')
+        combined_index = float('inf')  
+        
+    # Create Profile Classes DataFrame
+    profile_classes = pd.DataFrame(index=rlp_aggregated.columns)
+    profile_classes.loc[clustering_columns, 'Profile_Class'] = labels + 1  # Add 1 to match reference format
+    
+    if excluded_columns:
+        profile_classes.loc[excluded_columns, 'Profile_Class'] = 0  # Set excluded columns to Profile_Class 0
+
+    return {
+        'silhouette_score': silhouette,
+        'davies_bouldin_index': dbi,
+        'mean_index_adequacy': mia,
+        'combined_index': combined_index,
+        'profile_classes': profile_classes,
+        'dimensions': dimensions
+    }
+
+def evaluate_clustering_som_rectangular(rlp_aggregated, min_width=2, max_width=6, min_height=2, max_height=6, step=1):
+    """
+    Evaluate clustering using Self-Organizing Maps (SOM) on the provided data,
+    testing a range of SOM dimensions (including asymmetric grids) to find optimal clustering.
+    
+    Parameters:
+    -----------
+    rlp_aggregated : pandas.DataFrame
+        DataFrame containing the time series data to be clustered
+    min_width : int, optional
+        Minimum SOM width to try. If None, will be calculated based on data size.
+    max_width : int, optional
+        Maximum SOM width to try. If None, will be calculated based on data size.
+    min_height : int, optional
+        Minimum SOM height to try. If None, will be calculated based on data size.
+    max_height : int, optional
+        Maximum SOM height to try. If None, will be calculated based on data size.
+    step : int, optional
+        Step size for iterating through dimensions. Default is 1.
+    
+    Returns:
+    --------
+    tuple
+        (cluster_results, profile_classes, best_dimensions)
+        - cluster_results: Dictionary where keys are dimension tuples (width, height) and values are dictionaries of metrics
+        - profile_classes: DataFrame mapping each profile to its cluster from the best dimension
+        - best_dimensions: Tuple (width, height) of the optimal SOM dimensions
+    """
+
+    
+    # Prepare data for clustering
+    X = rlp_aggregated.T
+    print(f"Data shape after transposing: {X.shape}")
+    
+    # Check if we have enough samples
+    sample_count = X.shape[0]
+    
+    # Ensure data is float32 to avoid warnings
+    data = X.values.astype(np.float32)
+    
+    # Calculate appropriate SOM dimension range if not provided
+    base_dim = int(np.sqrt(sample_count / 5))
+    
+    if min_width is None:
+        min_width = max(2, base_dim - 2)
+    
+    if max_width is None:
+        max_width = min(base_dim + 3, 15)
+    
+    if min_height is None:
+        min_height = max(2, base_dim - 2)
+    
+    if max_height is None:
+        max_height = min(base_dim + 3, 15)
+    
+    print(f"Testing SOM dimensions from {min_width}x{min_height} to {max_width}x{max_height} with step {step}")
+    
+    # Store best results for each cluster count
+    best_results_by_clusters = {}
+    all_cluster_counts = set()
+    
+    # Test each SOM dimension combination in the range
+    for width in range(min_width, max_width + 1, step):
+        for height in range(min_height, max_height + 1, step):
+            print(f"\nTesting SOM dimension: {width}x{height}")
+            
+            # Initialize and train SOM
+            som = somoclu.Somoclu(width, height, compactsupport=False, maptype='planar')
+            som.train(data)
+            
+            # Get Best Matching Units (BMUs) for each data point
+            bmus = som.bmus
+            
+            # Get natural SOM clusters from BMU coordinates
+            m = np.arange(0, width*height, 1).reshape(height, width)
+            labels = np.array([m[bmus[i][1], bmus[i][0]] for i in range(len(bmus))])
+            
+            # Count natural clusters from SOM
+            unique_clusters = np.unique(labels)
+            natural_num_clusters = len(unique_clusters)
+            print(f"Natural clusters found by SOM: {natural_num_clusters}")
+            all_cluster_counts.add(natural_num_clusters)
+            
+            # Calculate metrics for natural clusters
+            if natural_num_clusters > 1:
+                silhouette = silhouette_score(data, labels)
+                dbi = davies_bouldin_score(data, labels)
+                mia = mean_index_adequacy(data, labels)
+                # Lower values of combined index are better
+                combined_index = (dbi * mia) / silhouette if silhouette > 0 else float('inf')
+                
+                print(f"Silhouette: {silhouette:.4f}, DBI: {dbi:.4f}, MIA: {mia:.4f}, Combined: {combined_index:.4f}")
+            else:
+                print("Warning: Only one natural cluster found, metrics will be default values")
+                silhouette = 0
+                dbi = float('inf')
+                mia = float('inf')
+                combined_index = float('inf')
+            
+                    # Create Profile Classes DataFrame
+            profile_classes = pd.DataFrame(index=rlp_aggregated.columns)
+            profile_classes['Profile_Class'] = labels + 1  # Add 1 to match reference function format
+            
+            # Check if this is the best result for this cluster count
+            if natural_num_clusters not in best_results_by_clusters or \
+               combined_index < best_results_by_clusters[natural_num_clusters]['combined_index']:
+                
+                best_results_by_clusters[natural_num_clusters] = {
+                    'num_clusters': natural_num_clusters,
+                    'silhouette_score': silhouette,
+                    'davies_bouldin_index': dbi,
+                    'mean_index_adequacy': mia,
+                    'combined_index': combined_index,
+                    'profile_classes': profile_classes,
+                    'dimensions': (width, height)
+                }
+    
+    # Convert dictionary to list
+    results_list = list(best_results_by_clusters.values())
+    
+    # Sort by number of clusters
+    results_list.sort(key=lambda x: x['num_clusters'])
+    
+    return results_list
+
+
+
 def visualize_profile_classes(rlp_aggregated, profile_classes, num_clusters):
     """
     Visualize the profile classes from clustering results
@@ -462,9 +691,11 @@ def visualize_profile_classes(rlp_aggregated, profile_classes, num_clusters):
     fig, ax = plt.subplots(figsize=(12, 6))
     ax.set_xlabel('Time of the Day', fontsize=12)
     ax.set_ylabel('Household Air Conditioner Electricity Consumption (Scaled)', fontsize=12)
-    
+    ax.set_title('Daily Profile Classes', fontsize=14)
     x_values = np.arange(48)
-    colors = plt.cm.viridis(np.linspace(0, 1, num_clusters+1))
+    plt.rcParams['font.family'] = 'Calibri'
+    rocket_cmap = plt.get_cmap('rocket')
+    colors = [rocket_cmap(i) for i in np.linspace(0, 1, num_clusters+1)]
     legend_handles = []
     
     # Plot clusters
@@ -573,13 +804,13 @@ def compare_cluster_sizes(rlp_aggregated, cluster_type, min_clusters=5, max_clus
                 results = evaluate_clustering_kmeans(rlp_aggregated, n_clusters)
             elif cluster_type== "dtw":
                 results = evaluate_clustering_dtw(rlp_aggregated, n_clusters)
-            elif cluster_type == "kmeans_constrained":
-                results = evaluate_clustering_kmeans_constrained(rlp_dict, n_clusters, size_max)
             elif cluster_type == "kmedoids":
                 results = evaluate_clustering_kmedoids(rlp_aggregated, n_clusters)
             elif cluster_type == "kmeans_load_factor":
                  results = evaluate_clustering_kmeans_load_factor(rlp_aggregated, n_clusters)
-
+            # skip for loop if cluster type is SOM
+            elif cluster_type == "SOM":
+                 results = evaluate_clustering_som(rlp_aggregated, n_clusters)
             
             cluster_results[n_clusters] = {
                 'Silhouette Score': results['silhouette_score'],
@@ -594,9 +825,26 @@ def compare_cluster_sizes(rlp_aggregated, cluster_type, min_clusters=5, max_clus
             print(f"Error evaluating {n_clusters} clusters: {str(e)}")
             continue
     
+    # if cluster_type == "SOM":
+    #     results = evaluate_clustering_som_new(rlp_aggregated)
+    #     for result in results:
+    #         cluster_results[result['num_clusters']] = {
+    #             'Silhouette Score': result['silhouette_score'],
+    #             'Davies-Bouldin Index': result['davies_bouldin_index'],
+    #             'Mean Index Adequacy': result['mean_index_adequacy'],
+    #             'Combined Index': result['combined_index'], 
+    #             'Dimensions': result['dimensions']
+    #         }
+    #         profile_classes_dict[result['num_clusters']] = result['profile_classes']
+    
     # Create comparison DataFrame
     metrics_df = pd.DataFrame(cluster_results).T
-    
+    # ensure columns Silhouette Score, Davies-Bouldin Index, Mean Index Adequacy, Combined Index are numeric
+    metrics_df['Silhouette Score'] = pd.to_numeric(metrics_df['Silhouette Score'], errors='coerce')
+    metrics_df['Davies-Bouldin Index'] = pd.to_numeric(metrics_df['Davies-Bouldin Index'], errors='coerce')
+    metrics_df['Mean Index Adequacy'] = pd.to_numeric(metrics_df['Mean Index Adequacy'], errors='coerce')
+    metrics_df['Combined Index'] = pd.to_numeric(metrics_df['Combined Index'], errors='coerce')
+
     # Round values for better readability
     metrics_df = metrics_df.round(4)
     
@@ -668,20 +916,21 @@ def analyze_profile_classes(rlp_aggregated, profile_classes):
     
     # Create visualization for largest class
     fig, ax = plt.subplots(figsize=(12, 6))
-    
+    plt.rcParams['font.family'] = 'Calibri'
+    rocket_cmap = plt.get_cmap('rocket')
     # Plot individual load profiles
     x_values = np.arange(48)
-    for member in largest_class_members[400:700]:
-        ax.plot(x_values, rlp_aggregated[member], color='blue', alpha=0.1)
+    for member in largest_class_members:
+        ax.plot(x_values, rlp_aggregated[member], color=rocket_cmap(0.7), alpha=0.08)
         
     # Plot mean profile
     mean_profile = rlp_aggregated[largest_class_members].mean(axis=1)
-    ax.plot(x_values, mean_profile, color='red', linewidth=2, label='Mean Profile')
+    ax.plot(x_values, mean_profile, color=rocket_cmap(0.3), linewidth=2, label='Mean Profile')
     
     # Customize plot
-    ax.set_title(f'Load Profiles for Profile Class {largest_class} (Largest Class)', fontsize=12)
+    ax.set_title(f'Load Profiles for Profile Class {int(largest_class)} (Largest Class)', fontsize=12)
     ax.set_xlabel('Time of Day', fontsize=12)
-    ax.set_ylabel('Load', fontsize=12)
+    ax.set_ylabel('Household Air Conditioner Electricity Consumption (Scaled)', fontsize=12)
     ax.set_xticks(range(0, 48, 2))
     ax.set_xticklabels([f"{i // 2:02d}:00" for i in range(0, 48, 2)])
     ax.tick_params(axis='x', labelrotation=45)
